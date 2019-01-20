@@ -3,7 +3,7 @@
 
 ![](readme_assets/animated.gif)
 
-Landiscover is a zero-configuration command-line tool that allows to discover every device connected to a local network within seconds. It is intended for fast service discovery (i.e. finding a printer or a IoT device), without recurring to other tools that are slow, difficult to remember or offer partial results. Although there are many applications already available for the scope, this one combines together multiple techniques, obtaining the most complete result available without without running individual tools or recurring to port scanners (i.e. Nmap). In particular:
+Landiscover is a zero-configuration command-line tool that allows to discover every device connected to a local network within seconds. It is intended for fast service discovery (i.e. finding a printer or a IoT device), without recurring to other tools that are slow, difficult to remember or offer partial results. Although there are many applications already available for the scope, this one combines together multiple techniques, obtaining the most complete result available without recurring to port scanning-based tool (i.e. Nmap). In particular:
 * Arping technique is used for node discovery;
 * DNS protocol is used for hostname discovery;
 * Multicast DNS (MDNS) protocol is used for node and hostname discovery;
