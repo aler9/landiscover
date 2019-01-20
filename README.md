@@ -31,7 +31,20 @@ It is also possible to set additional options by using the full syntax:
 ./landiscover [--passive] [interface]
 ```
 
-## Compilation
+## Compilation (dockerized)
+
+Dependencies:
+* Docker
+
+```bash
+./build.sh [arch]
+```
+
+Replace [arch] with one of the supported architectures:
+* amd64
+* armv7
+
+## Compilation (manual)
 
 Dependencies:
 * libpcap headers
