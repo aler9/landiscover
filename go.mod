@@ -1,4 +1,4 @@
-module lanscan
+module github.com/gswly/landiscover
 
 require (
 	github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc // indirect
@@ -8,6 +8,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/mdlayher/raw v0.0.0-20181016155347-fa5ef3332ca9 // indirect
 	github.com/nsf/termbox-go v0.0.0-20190104133558-0938b5187e61
+	github.com/stretchr/testify v1.3.0 // indirect
 	golang.org/x/net v0.0.0-20190110200230-915654e7eabc // indirect
 	golang.org/x/sys v0.0.0-20190116161447-11f53e031339 // indirect
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
