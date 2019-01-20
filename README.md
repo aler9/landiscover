@@ -36,6 +36,7 @@ It is also possible to set additional options by using the full syntax:
 Dependencies:
 * Docker
 
+Download required dependencies and compile in a container:
 ```bash
 ./build.sh [arch]
 ```
