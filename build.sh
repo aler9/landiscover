@@ -8,18 +8,18 @@ if [ -z "$IN_DOCKER" ]; then
     exit $?
 fi
 
-build() {
-    go build -v -o build_x64/landiscover \
-        || exit 1
+build_amd64() {
+    go build -v -o build_amd64/landiscover
+}
 
-    # GOOS=linux \
-    #     GOARCH=arm \
-    #     GOARM=7 \
-    #     CGO_ENABLED=1 \
-    #     CC=arm-linux-gnueabihf-gcc \
-    #     LD=arm-linux-gnueabihf-ld \
-    #     go build -v -o build_arm7/landiscover \
-    #     || exit 1
+build_armv7() {
+    GOOS=linux \
+        GOARCH=arm \
+        GOARM=7 \
+        CGO_ENABLED=1 \
+        CC=arm-linux-gnueabihf-gcc \
+        LD=arm-linux-gnueabihf-ld \
+        go build -v -o build_armv7/landiscover
 }
 
 shell() {
@@ -27,7 +27,8 @@ shell() {
 }
 
 case "$1" in
-    "") build;;
+    amd64) build_amd64;;
+    armv7) build_armv7;;
     shell) shell;;
-    *) echo "unrecognized command"; exit 1;;
+    *) echo "usage: $0 [amd64|armv7|shell]"; exit 1;;
 esac
