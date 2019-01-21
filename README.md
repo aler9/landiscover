@@ -10,7 +10,7 @@ Landiscover is a zero-configuration command-line tool that allows to discover ev
 * NetBIOS protocol is used for node and hostname discovery.
 
 The software is entirely written in Go, and the only external dependency is libpcap.
-
+ 
 
 ## Installation
 
