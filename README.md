@@ -25,7 +25,7 @@ Open a terminal in the same directory as the executable and run:
 ./landiscover
 ```
 
-It is also possible to set additional options by using the full syntax:
+It is also possible to set additional options by using the full command line syntax:
 ```bash
 ./landiscover [--passive] [interface]
 ```
