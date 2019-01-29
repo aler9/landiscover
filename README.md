@@ -15,7 +15,7 @@ The software is entirely written in Go, and the only external dependency is libp
 ## Installation
 
 * Prebuilt binaries are available in the [release page](https://github.com/gswly/landiscover/releases).
-* Otherwise it is possibile to build from source by following the instructions below.
+* Otherwise it is possibile to compile from source by following the instructions below.
 
 
 ## Usage
@@ -26,37 +26,36 @@ Open a terminal in the same directory as the executable and run:
 ```
 
 It is also possible to set additional options by using the full syntax:
-
 ```bash
 ./landiscover [--passive] [interface]
 ```
 
 ## Compilation (dockerized)
 
-Dependencies:
+1) Install dependencies:
 * Docker
 
-Download required dependencies and compile in a container:
+2) Compile in a container:
 ```bash
 ./build.sh [arch]
 ```
 
-Replace [arch] with one of the supported architectures:
+3) Replace [arch] with one of the supported architectures:
 * amd64
 * armv7
 
 ## Compilation (manual)
 
-Dependencies:
+1) Install dependencies:
 * libpcap headers
 * go >= 1.11
 
-Download required modules:
+2) Download required modules:
 ```bash
 go mod init
 ```
 
-Compile:
+3) Compile:
 ```
 go build
 ```
