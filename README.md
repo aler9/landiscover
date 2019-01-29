@@ -32,30 +32,29 @@ It is also possible to set additional options by using the full syntax:
 
 ## Compilation (dockerized)
 
-1) Install dependencies:
-* Docker
+1) Install Docker.
 
 2) Compile in a container:
-```bash
-./build.sh [arch]
-```
+   ```bash
+   ./build.sh [arch]
+   ```
 
 3) Replace [arch] with one of the supported architectures:
-* amd64
-* armv7
+   * amd64
+   * armv7
 
 ## Compilation (manual)
 
 1) Install dependencies:
-* libpcap headers
-* go >= 1.11
+   * libpcap headers
+   * go >= 1.11
 
 2) Download required modules:
-```bash
-go mod init
-```
+   ```bash
+   go mod init
+   ```
 
 3) Compile:
-```
-go build
-```
+   ```
+   go build
+   ```
