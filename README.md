@@ -16,7 +16,7 @@ The software is entirely written in Go, and the only external dependency is libp
 
 ## Installation
 
-Download, compile and install in your system with a single command:
+Download, compile and install with a single command:
 ```
 docker run --rm -it \
     -v /usr/bin:/out \
