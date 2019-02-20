@@ -1,7 +1,7 @@
 
 # landiscover
 
-[![Release](https://img.shields.io/github/release/gswly/landiscover.svg)](https://github.com/gswly/landiscover/release)
+[![Release](https://img.shields.io/github/release/gswly/landiscover.svg)](https://github.com/gswly/landiscover/releases)
 
 ![](readme_assets/animated.gif)
 
