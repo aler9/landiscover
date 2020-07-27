@@ -37,6 +37,10 @@ func (ls *LanDiscover) mdnsListen() {
             return
         }
 
+        if udp.DstPort != 5353 {
+            return
+        }
+
         if len(mdns.Answers) == 0 {
             return
         }
@@ -140,7 +144,8 @@ func (ls *LanDiscover) mdnsRequest(destIp net.IP) {
         panic(err)
     }
 
-    if err := ls.handle.WritePacketData(buf.Bytes()); err != nil {
+    err := ls.socket.Write(buf.Bytes())
+    if err != nil {
         panic(err)
     }
 }

@@ -113,7 +113,8 @@ func (ls *LanDiscover) arpPeriodicRequests() {
                 panic(err)
             }
 
-            if err := ls.handle.WritePacketData(buf.Bytes()); err != nil {
+            err := ls.socket.Write(buf.Bytes())
+            if err != nil {
                 panic(err)
             }
 

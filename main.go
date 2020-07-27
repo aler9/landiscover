@@ -8,7 +8,7 @@ import (
     "time"
     "bytes"
     "math/rand"
-    "github.com/google/gopacket/pcap"
+
     "gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -51,7 +51,7 @@ type LanDiscover struct {
     nodes               map[NodeKey]*Node
     intf                *net.Interface
     myIp                net.IP
-    handle              *pcap.Handle
+    socket *rawSocket
     listenDone          chan struct{}
     listenArp           chan []byte
     listenNbns          chan []byte
@@ -157,30 +157,25 @@ func (ls *LanDiscover) initInterface(intName string) {
         panic("no valid address found")
     }
 
-    ls.handle,err = pcap.OpenLive(ls.intf.Name, 65536, true, pcap.BlockForever)
+    ls.socket, err = newRawSocket(ls.intf)
     if err != nil {
-        panic(err)
-    }
-
-    if err := ls.handle.SetDirection(pcap.DirectionIn); err != nil {
-        panic(err)
-    }
-
-    if err := ls.handle.SetBPFFilter("arp or udp port 137 or udp port 5353"); err != nil {
         panic(err)
     }
 }
 
 func (ls *LanDiscover) listen() {
     for {
-        raw,_,err := ls.handle.ZeroCopyReadPacketData()
+        raw, err := ls.socket.Read()
         if err != nil {
             panic(err)
         }
+
         ls.listenArp <- raw
         ls.listenNbns <- raw
         ls.listenMdns <- raw
-        for i := 0; i < 3; i++ { // join before refilling buffer
+
+        // join before refilling buffer
+        for i := 0; i < 3; i++ {
             <- ls.listenDone
         }
     }

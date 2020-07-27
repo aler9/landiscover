@@ -28,6 +28,11 @@ func (ls *LanDiscover) nbnsListen() {
         if err := parser.DecodeLayers(raw, &decodedLayers); err != nil {
             return
         }
+
+        if udp.DstPort != 137 {
+            return
+        }
+
         if len(nbns.Answers) != 1 {
             return
         }
