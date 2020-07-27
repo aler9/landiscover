@@ -23,14 +23,9 @@ func newRawSocket(intf *net.Interface) (*rawSocket, error) {
 		return nil, err
 	}
 
-	var hwaddr [8]byte
-	copy(hwaddr[:], intf.HardwareAddr)
-
 	err = syscall.Bind(writer, &syscall.SockaddrLinklayer{
 		Protocol: syscall.ETH_P_IP,
 		Ifindex:  intf.Index,
-		Halen:    8,
-		Addr:     hwaddr,
 	})
 	if err != nil {
 		return nil, err
@@ -44,11 +39,7 @@ func newRawSocket(intf *net.Interface) (*rawSocket, error) {
 
 func (s *rawSocket) Read() ([]byte, error) {
 	byts, _, err := s.reader.ZeroCopyReadPacketData()
-	if err != nil {
-		return nil, err
-	}
-
-	return byts, nil
+	return byts, err
 }
 
 func (s *rawSocket) Write(byts []byte) error {

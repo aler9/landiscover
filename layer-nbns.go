@@ -3,14 +3,17 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	"strings"
+
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-	"strings"
 )
 
-const NBNS_PORT = 137
+const nbnsPort = 137
 
-type LayerNbns struct {
+var layerTypeNbns gopacket.LayerType
+
+type layerNbns struct {
 	layers.BaseLayer
 	TransactionId   uint16
 	IsResponse      bool
@@ -44,21 +47,19 @@ type NbnsAnswerName struct {
 	Flags uint16
 }
 
-var LayerTypeNbns gopacket.LayerType
-
-func LayerNbnsInit() {
-	LayerTypeNbns = gopacket.RegisterLayerType(
+func layerNbnsInit() {
+	layerTypeNbns = gopacket.RegisterLayerType(
 		2500,
 		gopacket.LayerTypeMetadata{
 			Name:    "Nbns",
-			Decoder: gopacket.DecodeFunc(decodeLayerNbns),
+			Decoder: gopacket.DecodeFunc(layerNbnsDecode),
 		},
 	)
-	layers.RegisterUDPPortLayerType(NBNS_PORT, LayerTypeNbns)
+	layers.RegisterUDPPortLayerType(nbnsPort, layerTypeNbns)
 }
 
-func decodeLayerNbns(data []byte, p gopacket.PacketBuilder) error {
-	l := &LayerNbns{}
+func layerNbnsDecode(data []byte, p gopacket.PacketBuilder) error {
+	l := &layerNbns{}
 	err := l.DecodeFromBytes(data, p)
 	if err != nil {
 		return err
@@ -68,23 +69,23 @@ func decodeLayerNbns(data []byte, p gopacket.PacketBuilder) error {
 	return nil
 }
 
-func (l *LayerNbns) LayerType() gopacket.LayerType {
-	return LayerTypeNbns
+func (l *layerNbns) LayerType() gopacket.LayerType {
+	return layerTypeNbns
 }
 
-func (l *LayerNbns) CanDecode() gopacket.LayerClass {
-	return LayerTypeNbns
+func (l *layerNbns) CanDecode() gopacket.LayerClass {
+	return layerTypeNbns
 }
 
-func (l *LayerNbns) NextLayerType() gopacket.LayerType {
+func (l *layerNbns) NextLayerType() gopacket.LayerType {
 	return gopacket.LayerTypeZero
 }
 
-func (l *LayerNbns) Payload() []byte {
+func (l *layerNbns) Payload() []byte {
 	return nil
 }
 
-func (l *LayerNbns) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+func (l *layerNbns) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	l.BaseLayer = layers.BaseLayer{Contents: data[:]}
 
 	if len(data) < 12 {
@@ -146,7 +147,7 @@ func (l *LayerNbns) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) err
 	return nil
 }
 
-func (l *LayerNbns) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
+func (l *layerNbns) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
 	data, err := b.AppendBytes(12)
 	if err != nil {
 		panic(err)

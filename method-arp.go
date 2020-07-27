@@ -2,20 +2,26 @@ package main
 
 import (
 	"bytes"
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
 	"net"
 	"time"
+
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
 )
 
-func (ls *LanDiscover) arpInit() {
-	go ls.arpListen()
-	if *argPassiveMode == false {
-		go ls.arpPeriodicRequests()
+const (
+	arpPeriod     = 50 * time.Millisecond
+	arpScanPeriod = 10 * time.Second
+)
+
+func (p *program) arpInit() {
+	go p.arpListen()
+	if p.passiveMode == false {
+		go p.arpPeriodicRequests()
 	}
 }
 
-func (ls *LanDiscover) arpListen() {
+func (p *program) arpListen() {
 	var decodedLayers []gopacket.LayerType
 	var eth layers.Ethernet
 	var arp layers.ARP
@@ -49,43 +55,43 @@ func (ls *LanDiscover) arpListen() {
 			return
 		}
 
-		key := FillNodeKey(srcMac, srcIp)
+		key := newNodeKey(srcMac, srcIp)
 
 		func() {
-			ls.mutex.Lock()
-			defer ls.mutex.Unlock()
+			p.mutex.Lock()
+			defer p.mutex.Unlock()
 
-			if _, has := ls.nodes[key]; !has {
-				ls.nodes[key] = &Node{
-					LastSeen: time.Now(),
-					Mac:      srcMac,
-					Ip:       srcIp,
+			if _, has := p.nodes[key]; !has {
+				p.nodes[key] = &node{
+					lastSeen: time.Now(),
+					mac:      srcMac,
+					ip:       srcIp,
 				}
-				ls.uiQueueDraw()
+				p.uiQueueDraw()
 
-				if *argPassiveMode == false {
-					go ls.doDnsRequest(key, srcIp)
-					go ls.nbnsRequest(srcIp)
-					go ls.mdnsRequest(srcIp)
+				if p.passiveMode == false {
+					go p.doDnsRequest(key, srcIp)
+					go p.nbnsRequest(srcIp)
+					go p.mdnsRequest(srcIp)
 				}
 
 				// update last seen
 			} else {
-				ls.nodes[key].LastSeen = time.Now()
-				ls.uiQueueDraw()
+				p.nodes[key].lastSeen = time.Now()
+				p.uiQueueDraw()
 			}
 		}()
 	}
 
-	for raw := range ls.listenArp {
+	for raw := range p.listenArp {
 		parse(raw)
-		ls.listenDone <- struct{}{}
+		p.listenDone <- struct{}{}
 	}
 }
 
-func (ls *LanDiscover) arpPeriodicRequests() {
+func (p *program) arpPeriodicRequests() {
 	eth := layers.Ethernet{
-		SrcMAC:       ls.intf.HardwareAddr,
+		SrcMAC:       p.intf.HardwareAddr,
 		DstMAC:       net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 		EthernetType: layers.EthernetTypeARP,
 	}
@@ -95,8 +101,8 @@ func (ls *LanDiscover) arpPeriodicRequests() {
 		HwAddressSize:     6,
 		ProtAddressSize:   4,
 		Operation:         layers.ARPRequest,
-		SourceHwAddress:   ls.intf.HardwareAddr,
-		SourceProtAddress: ls.myIp,
+		SourceHwAddress:   p.intf.HardwareAddr,
+		SourceProtAddress: p.ownIp,
 		DstHwAddress:      []byte{0, 0, 0, 0, 0, 0},
 	}
 
@@ -107,20 +113,20 @@ func (ls *LanDiscover) arpPeriodicRequests() {
 	}
 
 	for {
-		for _, dstAddr := range randAvailableIps(ls.myIp) {
+		for _, dstAddr := range randAvailableIps(p.ownIp) {
 			arp.DstProtAddress = dstAddr
 			if err := gopacket.SerializeLayers(buf, opts, &eth, &arp); err != nil {
 				panic(err)
 			}
 
-			err := ls.socket.Write(buf.Bytes())
+			err := p.socket.Write(buf.Bytes())
 			if err != nil {
 				panic(err)
 			}
 
 			// more results if there's a minimum delay between arps
-			time.Sleep(ARP_PERIOD)
+			time.Sleep(arpPeriod)
 		}
-		time.Sleep(ARP_SCAN_PERIOD)
+		time.Sleep(arpScanPeriod)
 	}
 }

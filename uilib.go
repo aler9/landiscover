@@ -1,43 +1,44 @@
 package main
 
 import (
-	"github.com/nsf/termbox-go"
 	"strings"
+
+	"github.com/nsf/termbox-go"
 )
 
 const (
-	COLUMN_PADDING = 2
+	uilibColumnPadding = 2
 )
 
-type UilibTableColumn string
+type uilibTableColumn string
 
-type UilibTableRow struct {
+type uilibTableRow struct {
 	Id    string
 	Cells []string
 }
 
-type Uilib struct {
+type uilib struct {
 	OnMoveX func(int)
 	OnMoveY func(int)
 	OnEnter func()
 	OnDraw  func(int, int)
 }
 
-func NewUilib() (*Uilib, error) {
+func newUilib() (*uilib, error) {
 	err := termbox.Init()
 	if err != nil {
 		return nil, err
 	}
 
-	u := &Uilib{}
+	u := &uilib{}
 	return u, nil
 }
 
-func (u *Uilib) Close() {
+func (u *uilib) Close() {
 	termbox.Close()
 }
 
-func (u *Uilib) Loop() {
+func (u *uilib) Loop() {
 	doDraw := func() {
 		termbox.Clear(termbox.ColorBlack, termbox.ColorBlack)
 		termWidth, termHeight := termbox.Size() // must be called after Clear()
@@ -105,11 +106,11 @@ mainloop:
 	}
 }
 
-func (u *Uilib) ForceDraw() {
+func (u *uilib) ForceDraw() {
 	termbox.Interrupt()
 }
 
-func (u *Uilib) DrawBorder(startX, startY, width, height int) {
+func (u *uilib) DrawBorder(startX, startY, width, height int) {
 	endX := startX + width - 1
 	endY := startY + height - 1
 
@@ -128,7 +129,7 @@ func (u *Uilib) DrawBorder(startX, startY, width, height int) {
 	}
 }
 
-func (u *Uilib) DrawClippedText(startX, endX, x, y int, text string, fg, bg termbox.Attribute) {
+func (u *uilib) DrawClippedText(startX, endX, x, y int, text string, fg, bg termbox.Attribute) {
 	for _, r := range text {
 		if x >= startX && x <= endX {
 			termbox.SetCell(x, y, r, fg, bg)
@@ -137,9 +138,9 @@ func (u *Uilib) DrawClippedText(startX, endX, x, y int, text string, fg, bg term
 	}
 }
 
-func (u *Uilib) DrawScrollableTable(startX int, startY int, width int, height int,
-	selection string, sortBy string, sortAsc bool, columns []UilibTableColumn,
-	rows []UilibTableRow, scrollX *int, scrollY *int) {
+func (u *uilib) DrawScrollableTable(startX int, startY int, width int, height int,
+	selection string, sortBy string, sortAsc bool, columns []uilibTableColumn,
+	rows []uilibTableRow, scrollX *int, scrollY *int) {
 	endX := startX + width - 1
 	endY := startY + height - 1
 
@@ -162,7 +163,7 @@ func (u *Uilib) DrawScrollableTable(startX int, startY int, width int, height in
 	// get table width
 	tableWidth := 0
 	for i := range columns {
-		tableWidth += colWidths[i] + COLUMN_PADDING
+		tableWidth += colWidths[i] + uilibColumnPadding
 	}
 
 	// get table height
@@ -225,7 +226,7 @@ func (u *Uilib) DrawScrollableTable(startX int, startY int, width int, height in
 			}
 		}
 		u.DrawClippedText(startX, endX, x, startY, text, fg, bg)
-		x += colWidths[i] + COLUMN_PADDING
+		x += colWidths[i] + uilibColumnPadding
 	}
 
 	// draw rows
@@ -242,14 +243,14 @@ func (u *Uilib) DrawScrollableTable(startX int, startY int, width int, height in
 			x := startX + *scrollX
 			for i, cell := range row.Cells {
 				u.DrawClippedText(startX, endX, x, y, cell, fg, bg)
-				x += colWidths[i] + COLUMN_PADDING
+				x += colWidths[i] + uilibColumnPadding
 			}
 		}
 		y += 1
 	}
 }
 
-func (u *Uilib) DrawScrollbar(vertical bool, fixedCoord int, start int,
+func (u *uilib) DrawScrollbar(vertical bool, fixedCoord int, start int,
 	screenSize int, pageSize int, cur int) {
 	scrollbarMaxSize := screenSize - 1
 	scrollbarSize := scrollbarMaxSize

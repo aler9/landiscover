@@ -12,46 +12,37 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-const (
-	DRAW_PERIOD     = 1 * time.Second
-	ARP_PERIOD      = 50 * time.Millisecond
-	ARP_SCAN_PERIOD = 10 * time.Second
-	MDNS_PERIOD     = 200 * time.Millisecond
-	NBNS_PERIOD     = 200 * time.Millisecond
-)
+var Version = "v0.0.0"
 
-var (
-	argInterface   = kingpin.Arg("interface", "Interface to listen to").String()
-	argPassiveMode = kingpin.Flag("passive", "Passive mode, listen without sending any packet").Default("false").Bool()
-)
-
-type NodeKey struct {
-	Mac [6]byte
-	Ip  [4]byte
+type nodeKey struct {
+	mac [6]byte
+	ip  [4]byte
 }
 
-func FillNodeKey(mac []byte, ip []byte) NodeKey {
-	key := NodeKey{}
-	copy(key.Mac[:], mac[:])
-	copy(key.Ip[:], ip)
+func newNodeKey(mac []byte, ip []byte) nodeKey {
+	key := nodeKey{}
+	copy(key.mac[:], mac[:])
+	copy(key.ip[:], ip)
 	return key
 }
 
-type Node struct {
-	LastSeen time.Time
-	Mac      net.HardwareAddr
-	Ip       net.IP
-	Dns      string
-	Nbns     string
-	Mdns     string
+type node struct {
+	lastSeen time.Time
+	mac      net.HardwareAddr
+	ip       net.IP
+	dns      string
+	nbns     string
+	mdns     string
 }
 
-type LanDiscover struct {
+type program struct {
+	passiveMode bool
+	intf        *net.Interface
+	ownIp       net.IP
+	socket      *rawSocket
+
 	mutex        sync.Mutex
-	nodes        map[NodeKey]*Node
-	intf         *net.Interface
-	myIp         net.IP
-	socket       *rawSocket
+	nodes        map[nodeKey]*node
 	listenDone   chan struct{}
 	listenArp    chan []byte
 	listenNbns   chan []byte
@@ -59,19 +50,83 @@ type LanDiscover struct {
 	uiDrawQueued bool
 }
 
-func main() {
+func newProgram() error {
+	k := kingpin.New("landiscover",
+		"landiscover "+Version+"\n\nMachine and service discovery tool.")
+
+	argInterface := k.Arg("interface", "Interface to listen to").String()
+	argPassiveMode := k.Flag("passive", "do not send any packet").Default("false").Bool()
+
+	kingpin.MustParse(k.Parse(os.Args[1:]))
+
 	if os.Getuid() != 0 {
-		panic(fmt.Errorf("you must be root."))
+		return fmt.Errorf("you must be root")
 	}
 
-	kingpin.Parse()
-
 	rand.Seed(time.Now().UnixNano())
-	LayerNbnsInit()
-	LayerMdnsInit()
+	layerNbnsInit()
+	layerMdnsInit()
 
-	ls := &LanDiscover{
-		nodes:        make(map[NodeKey]*Node),
+	intfName, err := func() (string, error) {
+		if len(*argInterface) > 1 {
+			return *argInterface, nil
+		}
+
+		return defaultInterfaceName()
+	}()
+	if err != nil {
+		return err
+	}
+
+	intf, err := func() (*net.Interface, error) {
+		intf, err := net.InterfaceByName(intfName)
+		if err != nil {
+			return nil, fmt.Errorf("invalid interface: %s", intfName)
+		}
+
+		if (intf.Flags & net.FlagBroadcast) == 0 {
+			return nil, fmt.Errorf("interface does not support broadcast")
+		}
+
+		return intf, nil
+	}()
+	if err != nil {
+		return err
+	}
+
+	ownIp, err := func() (net.IP, error) {
+		addrs, err := intf.Addrs()
+		if err != nil {
+			return nil, err
+		}
+
+		for _, a := range addrs {
+			if ipn, ok := a.(*net.IPNet); ok {
+				if ip4 := ipn.IP.To4(); ip4 != nil {
+					if bytes.Equal(ipn.Mask, []byte{255, 255, 255, 0}) {
+						return ip4, nil
+					}
+				}
+			}
+		}
+
+		return nil, fmt.Errorf("no valid ip found")
+	}()
+	if err != nil {
+		return err
+	}
+
+	socket, err := newRawSocket(intf)
+	if err != nil {
+		return err
+	}
+
+	p := &program{
+		passiveMode:  *argPassiveMode,
+		intf:         intf,
+		ownIp:        ownIp,
+		socket:       socket,
+		nodes:        make(map[nodeKey]*node),
 		listenDone:   make(chan struct{}),
 		listenArp:    make(chan []byte),
 		listenNbns:   make(chan []byte),
@@ -79,104 +134,38 @@ func main() {
 		uiDrawQueued: true,
 	}
 
-	interfaceName := func() string {
-		if len(*argInterface) > 1 {
-			return *argInterface
-		}
-		return ls.defaultInterface()
-	}()
-	ls.initInterface(interfaceName)
+	p.arpInit()
+	p.nbnsInit()
+	p.mdnsInit()
 
-	ls.arpInit()
-	ls.nbnsInit()
-	ls.mdnsInit()
+	go p.listen()
 
-	go ls.listen()
-	ls.ui()
+	p.ui()
+	return nil
 }
 
-func (ls *LanDiscover) defaultInterface() string {
-	intfs, err := net.Interfaces()
-	if err != nil {
-		return ""
-	}
-	for _, in := range intfs {
-		// must not be loopback
-		if (in.Flags & net.FlagLoopback) != 0 {
-			continue
-		}
-
-		// must be broadcast capable
-		if (in.Flags & net.FlagBroadcast) == 0 {
-			continue
-		}
-
-		// must have a valid ipv4
-		addrs, err := in.Addrs()
-		if err != nil {
-			continue
-		}
-		for _, a := range addrs {
-			if ipn, ok := a.(*net.IPNet); ok {
-				if ip4 := ipn.IP.To4(); ip4 != nil {
-					return in.Name
-				}
-			}
-		}
-	}
-	return ""
-}
-
-func (ls *LanDiscover) initInterface(intName string) {
-	var err error
-	ls.intf, err = net.InterfaceByName(intName)
-	if err != nil {
-		panic(fmt.Errorf("invalid interface: %s", intName))
-	}
-
-	if (ls.intf.Flags & net.FlagBroadcast) == 0 {
-		panic("interface does not support broadcast")
-	}
-
-	addrs, err := ls.intf.Addrs()
-	if err != nil {
-		panic(err)
-	}
-
-	for _, a := range addrs {
-		if ipn, ok := a.(*net.IPNet); ok {
-			if ip4 := ipn.IP.To4(); ip4 != nil {
-				if bytes.Equal(ipn.Mask, []byte{255, 255, 255, 0}) {
-					ls.myIp = ip4
-					break
-				}
-			}
-		}
-	}
-	if len(ls.myIp) == 0 {
-		panic("no valid address found")
-	}
-
-	ls.socket, err = newRawSocket(ls.intf)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func (ls *LanDiscover) listen() {
+func (p *program) listen() {
 	for {
-		raw, err := ls.socket.Read()
+		raw, err := p.socket.Read()
 		if err != nil {
 			panic(err)
 		}
 
-		ls.listenArp <- raw
-		ls.listenNbns <- raw
-		ls.listenMdns <- raw
+		p.listenArp <- raw
+		p.listenNbns <- raw
+		p.listenMdns <- raw
 
 		// join before refilling buffer
 		for i := 0; i < 3; i++ {
-			<-ls.listenDone
+			<-p.listenDone
 		}
+	}
+}
+
+func main() {
+	err := newProgram()
+	if err != nil {
+		fmt.Println("ERR:", err)
+		os.Exit(1)
 	}
 }

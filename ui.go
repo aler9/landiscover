@@ -2,14 +2,19 @@ package main
 
 import (
 	"fmt"
-	"github.com/nsf/termbox-go"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/nsf/termbox-go"
 )
 
-func (ls *LanDiscover) ui() {
-	uilib, err := NewUilib()
+const (
+	drawPeriod = 1 * time.Second
+)
+
+func (p *program) ui() {
+	uilib, err := newUilib()
 	if err != nil {
 		panic(err)
 	}
@@ -21,7 +26,7 @@ func (ls *LanDiscover) ui() {
 	tableScrollY := 0
 	tableSortBy := "mac"
 	tableSortAsc := true
-	tableColumns := []UilibTableColumn{
+	tableColumns := []uilibTableColumn{
 		"last seen",
 		"mac",
 		"ip",
@@ -30,7 +35,7 @@ func (ls *LanDiscover) ui() {
 		"nbns",
 		"mdns",
 	}
-	var tableRows []UilibTableRow
+	var tableRows []uilibTableRow
 	var selectables []string
 	selection := ""
 
@@ -77,41 +82,41 @@ func (ls *LanDiscover) ui() {
 	}
 
 	dataToUi := func() bool {
-		ls.mutex.Lock()
-		defer ls.mutex.Unlock()
+		p.mutex.Lock()
+		defer p.mutex.Unlock()
 
-		if ls.uiDrawQueued == false {
+		if p.uiDrawQueued == false {
 			return false
 		}
-		ls.uiDrawQueued = false
+		p.uiDrawQueued = false
 
-		tableRows = func() []UilibTableRow {
-			var ret []UilibTableRow
-			for _, n := range ls.nodes {
-				row := UilibTableRow{
-					Id: fmt.Sprintf("%s_%s", n.Mac.String(), n.Ip.String()),
+		tableRows = func() []uilibTableRow {
+			var ret []uilibTableRow
+			for _, n := range p.nodes {
+				row := uilibTableRow{
+					Id: fmt.Sprintf("%s_%s", n.mac.String(), n.ip.String()),
 					Cells: []string{
-						n.LastSeen.Format("Jan 2 15:04:05"),
-						n.Mac.String(),
-						n.Ip.String(),
-						macVendor(n.Mac),
+						n.lastSeen.Format("Jan 2 15:04:05"),
+						n.mac.String(),
+						n.ip.String(),
+						macVendor(n.mac),
 						func() string {
-							if n.Dns == "" {
+							if n.dns == "" {
 								return "-"
 							}
-							return n.Dns
+							return n.dns
 						}(),
 						func() string {
-							if n.Nbns == "" {
+							if n.nbns == "" {
 								return "-"
 							}
-							return n.Nbns
+							return n.nbns
 						}(),
 						func() string {
-							if n.Mdns == "" {
+							if n.mdns == "" {
 								return "-"
 							}
-							return n.Mdns
+							return n.mdns
 						}(),
 					},
 				}
@@ -120,9 +125,9 @@ func (ls *LanDiscover) ui() {
 			return ret
 		}()
 		infoText = fmt.Sprintf("interface: %s%s    entries: %d",
-			ls.intf.Name,
+			p.intf.Name,
 			func() string {
-				if *argPassiveMode {
+				if p.passiveMode {
 					return " (passive mode)"
 				}
 				return ""
@@ -135,7 +140,7 @@ func (ls *LanDiscover) ui() {
 
 	dataToUi()
 
-	ticker := time.NewTicker(DRAW_PERIOD)
+	ticker := time.NewTicker(drawPeriod)
 	defer ticker.Stop()
 	tickerTerminate := make(chan struct{})
 	tickerDone := make(chan struct{})
@@ -211,6 +216,6 @@ func (ls *LanDiscover) ui() {
 	<-tickerDone
 }
 
-func (ls *LanDiscover) uiQueueDraw() {
-	ls.uiDrawQueued = true
+func (p *program) uiQueueDraw() {
+	p.uiDrawQueued = true
 }

@@ -3,11 +3,48 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/google/gopacket/macs"
+	"fmt"
 	"math/rand"
 	"net"
 	"strings"
+
+	"github.com/google/gopacket/macs"
 )
+
+func defaultInterfaceName() (string, error) {
+	intfs, err := net.Interfaces()
+	if err != nil {
+		return "", err
+	}
+
+	for _, in := range intfs {
+		// must not be loopback
+		if (in.Flags & net.FlagLoopback) != 0 {
+			continue
+		}
+
+		// must be broadcast capable
+		if (in.Flags & net.FlagBroadcast) == 0 {
+			continue
+		}
+
+		addrs, err := in.Addrs()
+		if err != nil {
+			continue
+		}
+
+		// must have a valid ipv4
+		for _, a := range addrs {
+			if ipn, ok := a.(*net.IPNet); ok {
+				if ip4 := ipn.IP.To4(); ip4 != nil {
+					return in.Name, nil
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no interfaces found")
+}
 
 func macVendor(mac net.HardwareAddr) string {
 	var pref [3]byte

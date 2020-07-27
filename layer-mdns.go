@@ -3,16 +3,19 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	"regexp"
+
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-	"regexp"
 )
 
-const MDNS_PORT = 5353
+const mdnsPort = 5353
 
 var reMdnsQueryLocal = regexp.MustCompile("^([0-9]{1,3})\\.([0-9]{1,3})\\.([0-9]{1,3})\\.([0-9]{1,3})\\.in-addr\\.arpa$")
 
-type LayerMdns struct {
+var layerTypeMdns gopacket.LayerType
+
+type layerMdns struct {
 	layers.BaseLayer
 	TransactionId   uint16
 	IsResponse      bool
@@ -37,21 +40,19 @@ type MdnsAnswer struct {
 	DomainName string
 }
 
-var LayerTypeMdns gopacket.LayerType
-
-func LayerMdnsInit() {
-	LayerTypeMdns = gopacket.RegisterLayerType(
+func layerMdnsInit() {
+	layerTypeMdns = gopacket.RegisterLayerType(
 		2501,
 		gopacket.LayerTypeMetadata{
 			Name:    "Mdns",
-			Decoder: gopacket.DecodeFunc(decodeLayerMdns),
+			Decoder: gopacket.DecodeFunc(layerMdnsDecode),
 		},
 	)
-	layers.RegisterUDPPortLayerType(MDNS_PORT, LayerTypeMdns)
+	layers.RegisterUDPPortLayerType(mdnsPort, layerTypeMdns)
 }
 
-func decodeLayerMdns(data []byte, p gopacket.PacketBuilder) error {
-	l := &LayerMdns{}
+func layerMdnsDecode(data []byte, p gopacket.PacketBuilder) error {
+	l := &layerMdns{}
 	err := l.DecodeFromBytes(data, p)
 	if err != nil {
 		return err
@@ -61,23 +62,23 @@ func decodeLayerMdns(data []byte, p gopacket.PacketBuilder) error {
 	return nil
 }
 
-func (l *LayerMdns) LayerType() gopacket.LayerType {
-	return LayerTypeMdns
+func (l *layerMdns) LayerType() gopacket.LayerType {
+	return layerTypeMdns
 }
 
-func (l *LayerMdns) CanDecode() gopacket.LayerClass {
-	return LayerTypeMdns
+func (l *layerMdns) CanDecode() gopacket.LayerClass {
+	return layerTypeMdns
 }
 
-func (l *LayerMdns) NextLayerType() gopacket.LayerType {
+func (l *layerMdns) NextLayerType() gopacket.LayerType {
 	return gopacket.LayerTypeZero
 }
 
-func (l *LayerMdns) Payload() []byte {
+func (l *layerMdns) Payload() []byte {
 	return nil
 }
 
-func (l *LayerMdns) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+func (l *layerMdns) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	l.BaseLayer = layers.BaseLayer{Contents: data[:]}
 
 	l.TransactionId = binary.BigEndian.Uint16(data[0:2])
@@ -128,7 +129,7 @@ func (l *LayerMdns) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) err
 	return nil
 }
 
-func (l *LayerMdns) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
+func (l *layerMdns) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
 	data, err := b.AppendBytes(12)
 	if err != nil {
 		panic(err)

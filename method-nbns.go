@@ -1,22 +1,27 @@
 package main
 
 import (
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
 	"net"
 	"time"
+
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
 )
 
-func (ls *LanDiscover) nbnsInit() {
-	go ls.nbnsListen()
+const (
+	nbnsPeriod = 200 * time.Millisecond
+)
+
+func (p *program) nbnsInit() {
+	go p.nbnsListen()
 }
 
-func (ls *LanDiscover) nbnsListen() {
+func (p *program) nbnsListen() {
 	var decodedLayers []gopacket.LayerType
 	var eth layers.Ethernet
 	var ip layers.IPv4
 	var udp layers.UDP
-	var nbns LayerNbns
+	var nbns layerNbns
 
 	parser := gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet,
 		&eth,
@@ -52,40 +57,40 @@ func (ls *LanDiscover) nbnsListen() {
 		srcMac := copyMac(eth.SrcMAC)
 		srcIp := copyIp(ip.SrcIP)
 
-		key := FillNodeKey(srcMac, srcIp)
+		key := newNodeKey(srcMac, srcIp)
 
 		func() {
-			ls.mutex.Lock()
-			defer ls.mutex.Unlock()
+			p.mutex.Lock()
+			defer p.mutex.Unlock()
 
-			if _, has := ls.nodes[key]; !has {
-				ls.nodes[key] = &Node{
-					LastSeen: time.Now(),
-					Mac:      srcMac,
-					Ip:       srcIp,
+			if _, has := p.nodes[key]; !has {
+				p.nodes[key] = &node{
+					lastSeen: time.Now(),
+					mac:      srcMac,
+					ip:       srcIp,
 				}
-				ls.uiQueueDraw()
+				p.uiQueueDraw()
 			}
 
-			ls.nodes[key].LastSeen = time.Now()
-			if ls.nodes[key].Nbns != name {
-				ls.nodes[key].Nbns = name
+			p.nodes[key].lastSeen = time.Now()
+			if p.nodes[key].nbns != name {
+				p.nodes[key].nbns = name
 			}
-			ls.uiQueueDraw()
+			p.uiQueueDraw()
 		}()
 	}
 
-	for raw := range ls.listenNbns {
+	for raw := range p.listenNbns {
 		parse(raw)
-		ls.listenDone <- struct{}{}
+		p.listenDone <- struct{}{}
 	}
 }
 
-func (ls *LanDiscover) nbnsRequest(destIp net.IP) {
+func (p *program) nbnsRequest(destIp net.IP) {
 	localAddr := &net.UDPAddr{}
 	remoteAddr := &net.UDPAddr{
 		IP:   destIp,
-		Port: NBNS_PORT,
+		Port: nbnsPort,
 	}
 	conn, err := net.DialUDP("udp", localAddr, remoteAddr)
 	if err != nil {
@@ -93,7 +98,7 @@ func (ls *LanDiscover) nbnsRequest(destIp net.IP) {
 	}
 	defer conn.Close()
 
-	nbns := LayerNbns{
+	nbns := layerNbns{
 		TransactionId: randUint16(),
 		Questions: []NbnsQuestion{
 			{
@@ -121,11 +126,11 @@ func (ls *LanDiscover) nbnsRequest(destIp net.IP) {
 	// "destination unreachable". Otherwise connection count would increment with time
 }
 
-func (ls *LanDiscover) nbnsPeriodicRequests() {
+func (p *program) nbnsPeriodicRequests() {
 	for {
-		for _, dstAddr := range randAvailableIps(ls.myIp) {
-			ls.nbnsRequest(dstAddr)
-			time.Sleep(NBNS_PERIOD) // about 1 minute for a full scan
+		for _, dstAddr := range randAvailableIps(p.ownIp) {
+			p.nbnsRequest(dstAddr)
+			time.Sleep(nbnsPeriod) // about 1 minute for a full scan
 		}
 	}
 }

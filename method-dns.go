@@ -4,7 +4,7 @@ import (
 	"net"
 )
 
-func (ls *LanDiscover) doDnsRequest(key NodeKey, destIp net.IP) {
+func (p *program) doDnsRequest(key nodeKey, destIp net.IP) {
 	names, err := net.LookupAddr(destIp.String())
 	if err != nil {
 		return
@@ -14,12 +14,12 @@ func (ls *LanDiscover) doDnsRequest(key NodeKey, destIp net.IP) {
 		return
 	}
 
-	ls.mutex.Lock()
-	defer ls.mutex.Unlock()
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
 	name := names[0]
 	if name[len(name)-1] == '.' {
 		name = name[:len(name)-1]
 	}
-	ls.nodes[key].Dns = name
-	ls.uiQueueDraw()
+	p.nodes[key].dns = name
+	p.uiQueueDraw()
 }

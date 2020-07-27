@@ -3,28 +3,33 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
 	"net"
 	"strings"
 	"time"
+
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
 )
 
-func (ls *LanDiscover) mdnsInit() {
-	go ls.mdnsListen()
+const (
+	mdnsPeriod = 200 * time.Millisecond
+)
 
-	if *argPassiveMode == false {
+func (p *program) mdnsInit() {
+	go p.mdnsListen()
+
+	if p.passiveMode == false {
 		// continuously poll mdns to detect changes or skipped hosts
-		go ls.mdnsPeriodicRequests()
+		go p.mdnsPeriodicRequests()
 	}
 }
 
-func (ls *LanDiscover) mdnsListen() {
+func (p *program) mdnsListen() {
 	var decodedLayers []gopacket.LayerType
 	var eth layers.Ethernet
 	var ip layers.IPv4
 	var udp layers.UDP
-	var mdns LayerMdns
+	var mdns layerMdns
 
 	parser := gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet,
 		&eth,
@@ -37,7 +42,7 @@ func (ls *LanDiscover) mdnsListen() {
 			return
 		}
 
-		if udp.DstPort != 5353 {
+		if udp.DstPort != mdnsPort {
 			return
 		}
 
@@ -75,39 +80,39 @@ func (ls *LanDiscover) mdnsListen() {
 		}
 
 		domainName = strings.TrimSuffix(domainName, ".local")
-		key := FillNodeKey(srcMac, srcIp)
+		key := newNodeKey(srcMac, srcIp)
 
 		func() {
-			ls.mutex.Lock()
-			defer ls.mutex.Unlock()
+			p.mutex.Lock()
+			defer p.mutex.Unlock()
 
-			if _, has := ls.nodes[key]; !has {
-				ls.nodes[key] = &Node{
-					LastSeen: time.Now(),
-					Mac:      srcMac,
-					Ip:       srcIp,
+			if _, has := p.nodes[key]; !has {
+				p.nodes[key] = &node{
+					lastSeen: time.Now(),
+					mac:      srcMac,
+					ip:       srcIp,
 				}
-				ls.uiQueueDraw()
+				p.uiQueueDraw()
 			}
 
-			ls.nodes[key].LastSeen = time.Now()
-			if ls.nodes[key].Mdns != domainName {
-				ls.nodes[key].Mdns = domainName
+			p.nodes[key].lastSeen = time.Now()
+			if p.nodes[key].mdns != domainName {
+				p.nodes[key].mdns = domainName
 			}
-			ls.uiQueueDraw()
+			p.uiQueueDraw()
 		}()
 	}
 
-	for raw := range ls.listenMdns {
+	for raw := range p.listenMdns {
 		parse(raw)
-		ls.listenDone <- struct{}{}
+		p.listenDone <- struct{}{}
 	}
 }
 
-func (ls *LanDiscover) mdnsRequest(destIp net.IP) {
+func (p *program) mdnsRequest(destIp net.IP) {
 	mac, _ := net.ParseMAC("01:00:5e:00:00:fb")
 	eth := layers.Ethernet{
-		SrcMAC:       ls.intf.HardwareAddr,
+		SrcMAC:       p.intf.HardwareAddr,
 		DstMAC:       mac,
 		EthernetType: layers.EthernetTypeIPv4,
 	}
@@ -116,15 +121,15 @@ func (ls *LanDiscover) mdnsRequest(destIp net.IP) {
 		TTL:      255,
 		Id:       randUint16(),
 		Protocol: layers.IPProtocolUDP,
-		SrcIP:    ls.myIp,
+		SrcIP:    p.ownIp,
 		DstIP:    net.ParseIP("224.0.0.251"), // TODO: provare unicast
 	}
 	udp := layers.UDP{
-		SrcPort: MDNS_PORT,
-		DstPort: MDNS_PORT,
+		SrcPort: mdnsPort,
+		DstPort: mdnsPort,
 	}
 	udp.SetNetworkLayerForChecksum(&ip)
-	mdns := LayerMdns{
+	mdns := layerMdns{
 		TransactionId: 0,
 		Questions: []MdnsQuestion{
 			{
@@ -144,17 +149,17 @@ func (ls *LanDiscover) mdnsRequest(destIp net.IP) {
 		panic(err)
 	}
 
-	err := ls.socket.Write(buf.Bytes())
+	err := p.socket.Write(buf.Bytes())
 	if err != nil {
 		panic(err)
 	}
 }
 
-func (ls *LanDiscover) mdnsPeriodicRequests() {
+func (p *program) mdnsPeriodicRequests() {
 	for {
-		for _, dstAddr := range randAvailableIps(ls.myIp) {
-			ls.mdnsRequest(dstAddr)
-			time.Sleep(MDNS_PERIOD) // about 1 minute for a full scan
+		for _, dstAddr := range randAvailableIps(p.ownIp) {
+			p.mdnsRequest(dstAddr)
+			time.Sleep(mdnsPeriod) // about 1 minute for a full scan
 		}
 	}
 }
