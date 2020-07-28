@@ -1,37 +1,47 @@
 
 # landiscover
 
-[![Release](https://img.shields.io/github/release/gswly/landiscover.svg)](https://github.com/gswly/landiscover/releases)
+[![Build Status](https://travis-ci.org/aler9/landiscover.svg?branch=master)](https://travis-ci.org/aler9/landiscover)
+[![Go Report Card](https://goreportcard.com/badge/github.com/aler9/landiscover)](https://goreportcard.com/report/github.com/aler9/landiscover)
+[![Docker Hub](https://img.shields.io/badge/docker-aler9%2Flandiscover-blue)](https://hub.docker.com/r/aler9/landiscover)
 
 ![](README.gif)
 
-Landiscover is a zero-configuration command-line tool that allows to discover every device connected to a local network, together with their hostname, in a very short period of time. It is intended for fast service discovery (i.e. finding a printer or a IoT device), without recurring to other tools that are often slow, difficult to remember or offer partial results. Although there are many applications already available for the scope, this one combines multiple techniques present individually in other softwares, in order to obtain the most complete result available without recurring to port scanning-based tool (i.e. Nmap). In particular:
-* Arping technique is used for node discovery;
-* DNS protocol is used for hostname discovery;
-* Multicast DNS (MDNS) protocol is used for node and hostname discovery;
-* NetBIOS protocol is used for node and hostname discovery.
+Landiscover is a command-line tool that allows to discover devices and services available in the local network.
 
-The software is entirely written in Go, and the only external dependency is libpcap.
+Features:
+* Discover devices and services within seconds
+* Available for Linux, no external dependencies
 
+This software combines multiple discovery techniques:
+* Arping is used to find machines
+* DNS protocol is used to find hostnames
+* Multicast DNS (MDNS) is used to find machines and hostnames
+* NetBIOS protocol is used to find machines and hostnames
 
-## Installation
+## Installation and usage
 
-Download, compile and install with a single command:
+Install and run with Docker:
 ```
-docker run --rm -it \
-    -v /usr/bin:/out \
-    golang:1.11-stretch \
-    bash -c "apt update && apt install -y libpcap-dev \
-    && go get github.com/gswly/landiscover \
-    && cp /go/bin/landiscover /out/"
+docker run --rm -it --network=host aler9/landiscover
 ```
 
-Notes:
-* Docker is required and is the only dependency
-* Replace `/usr/bin` with the desired installation folder
+Alternatively, you can download and run a precompiled binary from the [release page](https://github.com/aler9/landiscover/releases).
 
-## Usage
+## Full command-line usage
 
 ```
-landiscover [--passive] [interface]
+usage: landiscover [<flags>] [<interface>]
+
+landiscover v0.0.0
+
+Machine and service discovery tool.
+
+Flags:
+  --help     Show context-sensitive help (also try --help-long and --help-man).
+  --passive  do not send any packet
+
+Args:
+  [<interface>]  Interface to listen to
+
 ```
