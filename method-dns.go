@@ -4,7 +4,7 @@ import (
 	"net"
 )
 
-func (p *program) doDnsRequest(key nodeKey, destIp net.IP) {
+func (p *program) dnsRequest(key nodeKey, destIp net.IP) {
 	names, err := net.LookupAddr(destIp.String())
 	if err != nil {
 		return
@@ -14,12 +14,13 @@ func (p *program) doDnsRequest(key nodeKey, destIp net.IP) {
 		return
 	}
 
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-	name := names[0]
-	if name[len(name)-1] == '.' {
-		name = name[:len(name)-1]
+	dns := names[0]
+	if dns[len(dns)-1] == '.' {
+		dns = dns[:len(dns)-1]
 	}
-	p.nodes[key].dns = name
-	p.uiQueueDraw()
+
+	p.events <- programEventDns{
+		key: key,
+		dns: dns,
+	}
 }

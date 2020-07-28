@@ -14,14 +14,31 @@ const (
 	arpScanPeriod = 10 * time.Second
 )
 
-func (p *program) arpInit() {
-	go p.arpListen()
-	if p.passiveMode == false {
-		go p.arpPeriodicRequests()
+type methodArp struct {
+	p *program
+
+	listen chan []byte
+}
+
+func newMethodArp(p *program) error {
+	ma := &methodArp{
+		p:      p,
+		listen: make(chan []byte),
+	}
+
+	p.ma = ma
+	return nil
+}
+
+func (ma *methodArp) run() {
+	go ma.runListener()
+
+	if ma.p.passiveMode == false {
+		go ma.runPeriodicRequests()
 	}
 }
 
-func (p *program) arpListen() {
+func (ma *methodArp) runListener() {
 	var decodedLayers []gopacket.LayerType
 	var eth layers.Ethernet
 	var arp layers.ARP
@@ -55,43 +72,21 @@ func (p *program) arpListen() {
 			return
 		}
 
-		key := newNodeKey(srcMac, srcIp)
-
-		func() {
-			p.mutex.Lock()
-			defer p.mutex.Unlock()
-
-			if _, has := p.nodes[key]; !has {
-				p.nodes[key] = &node{
-					lastSeen: time.Now(),
-					mac:      srcMac,
-					ip:       srcIp,
-				}
-				p.uiQueueDraw()
-
-				if p.passiveMode == false {
-					go p.doDnsRequest(key, srcIp)
-					go p.nbnsRequest(srcIp)
-					go p.mdnsRequest(srcIp)
-				}
-
-				// update last seen
-			} else {
-				p.nodes[key].lastSeen = time.Now()
-				p.uiQueueDraw()
-			}
-		}()
+		ma.p.events <- programEventArp{
+			srcMac: srcMac,
+			srcIp:  srcIp,
+		}
 	}
 
-	for raw := range p.listenArp {
+	for raw := range ma.listen {
 		parse(raw)
-		p.listenDone <- struct{}{}
+		ma.p.ls.listenDone <- struct{}{}
 	}
 }
 
-func (p *program) arpPeriodicRequests() {
+func (ma *methodArp) runPeriodicRequests() {
 	eth := layers.Ethernet{
-		SrcMAC:       p.intf.HardwareAddr,
+		SrcMAC:       ma.p.intf.HardwareAddr,
 		DstMAC:       net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 		EthernetType: layers.EthernetTypeARP,
 	}
@@ -101,8 +96,8 @@ func (p *program) arpPeriodicRequests() {
 		HwAddressSize:     6,
 		ProtAddressSize:   4,
 		Operation:         layers.ARPRequest,
-		SourceHwAddress:   p.intf.HardwareAddr,
-		SourceProtAddress: p.ownIp,
+		SourceHwAddress:   ma.p.intf.HardwareAddr,
+		SourceProtAddress: ma.p.ownIp,
 		DstHwAddress:      []byte{0, 0, 0, 0, 0, 0},
 	}
 
@@ -113,13 +108,13 @@ func (p *program) arpPeriodicRequests() {
 	}
 
 	for {
-		for _, dstAddr := range randAvailableIps(p.ownIp) {
+		for _, dstAddr := range randAvailableIps(ma.p.ownIp) {
 			arp.DstProtAddress = dstAddr
 			if err := gopacket.SerializeLayers(buf, opts, &eth, &arp); err != nil {
 				panic(err)
 			}
 
-			err := p.socket.Write(buf.Bytes())
+			err := ma.p.ls.socket.Write(buf.Bytes())
 			if err != nil {
 				panic(err)
 			}

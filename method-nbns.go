@@ -12,11 +12,27 @@ const (
 	nbnsPeriod = 200 * time.Millisecond
 )
 
-func (p *program) nbnsInit() {
-	go p.nbnsListen()
+type methodNbns struct {
+	p *program
+
+	listen chan []byte
 }
 
-func (p *program) nbnsListen() {
+func newMethodNbns(p *program) error {
+	mn := &methodNbns{
+		p:      p,
+		listen: make(chan []byte),
+	}
+
+	p.mn = mn
+	return nil
+}
+
+func (mn *methodNbns) run() {
+	go mn.runListener()
+}
+
+func (mn *methodNbns) runListener() {
 	var decodedLayers []gopacket.LayerType
 	var eth layers.Ethernet
 	var ip layers.IPv4
@@ -34,7 +50,7 @@ func (p *program) nbnsListen() {
 			return
 		}
 
-		if udp.DstPort != 137 {
+		if udp.DstPort != nbnsPort && udp.SrcPort != nbnsPort {
 			return
 		}
 
@@ -57,36 +73,20 @@ func (p *program) nbnsListen() {
 		srcMac := copyMac(eth.SrcMAC)
 		srcIp := copyIp(ip.SrcIP)
 
-		key := newNodeKey(srcMac, srcIp)
-
-		func() {
-			p.mutex.Lock()
-			defer p.mutex.Unlock()
-
-			if _, has := p.nodes[key]; !has {
-				p.nodes[key] = &node{
-					lastSeen: time.Now(),
-					mac:      srcMac,
-					ip:       srcIp,
-				}
-				p.uiQueueDraw()
-			}
-
-			p.nodes[key].lastSeen = time.Now()
-			if p.nodes[key].nbns != name {
-				p.nodes[key].nbns = name
-			}
-			p.uiQueueDraw()
-		}()
+		mn.p.events <- programEventNbns{
+			srcMac: srcMac,
+			srcIp:  srcIp,
+			name:   name,
+		}
 	}
 
-	for raw := range p.listenNbns {
+	for raw := range mn.listen {
 		parse(raw)
-		p.listenDone <- struct{}{}
+		mn.p.ls.listenDone <- struct{}{}
 	}
 }
 
-func (p *program) nbnsRequest(destIp net.IP) {
+func (mn *methodNbns) request(destIp net.IP) {
 	localAddr := &net.UDPAddr{}
 	remoteAddr := &net.UDPAddr{
 		IP:   destIp,
@@ -124,13 +124,4 @@ func (p *program) nbnsRequest(destIp net.IP) {
 
 	// close immediately the connection even if this generates a "ICMP"
 	// "destination unreachable". Otherwise connection count would increment with time
-}
-
-func (p *program) nbnsPeriodicRequests() {
-	for {
-		for _, dstAddr := range randAvailableIps(p.ownIp) {
-			p.nbnsRequest(dstAddr)
-			time.Sleep(nbnsPeriod) // about 1 minute for a full scan
-		}
-	}
 }

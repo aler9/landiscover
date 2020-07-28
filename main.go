@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"net"
 	"os"
-	"sync"
 	"time"
 
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -35,19 +34,62 @@ type node struct {
 	mdns     string
 }
 
+type programEvent interface {
+	isProgramEvent()
+}
+
+type programEventArp struct {
+	srcMac net.HardwareAddr
+	srcIp  net.IP
+}
+
+func (programEventArp) isProgramEvent() {}
+
+type programEventDns struct {
+	key nodeKey
+	dns string
+}
+
+func (programEventDns) isProgramEvent() {}
+
+type programEventMdns struct {
+	srcMac     net.HardwareAddr
+	srcIp      net.IP
+	domainName string
+}
+
+func (programEventMdns) isProgramEvent() {}
+
+type programEventNbns struct {
+	srcMac net.HardwareAddr
+	srcIp  net.IP
+	name   string
+}
+
+func (programEventNbns) isProgramEvent() {}
+
+type programEventUiGetData struct {
+	resNodes chan map[nodeKey]*node
+	done     chan struct{}
+}
+
+func (programEventUiGetData) isProgramEvent() {}
+
+type programEventTerminate struct{}
+
+func (programEventTerminate) isProgramEvent() {}
+
 type program struct {
 	passiveMode bool
 	intf        *net.Interface
 	ownIp       net.IP
-	socket      *rawSocket
+	ls          *listener
+	ma          *methodArp
+	mm          *methodMdns
+	mn          *methodNbns
+	ui          *ui
 
-	mutex        sync.Mutex
-	nodes        map[nodeKey]*node
-	listenDone   chan struct{}
-	listenArp    chan []byte
-	listenNbns   chan []byte
-	listenMdns   chan []byte
-	uiDrawQueued bool
+	events chan programEvent
 }
 
 func newProgram() error {
@@ -116,50 +158,129 @@ func newProgram() error {
 		return err
 	}
 
-	socket, err := newRawSocket(intf)
+	p := &program{
+		passiveMode: *argPassiveMode,
+		intf:        intf,
+		ownIp:       ownIp,
+		events:      make(chan programEvent),
+	}
+
+	err = newListener(p)
 	if err != nil {
 		return err
 	}
 
-	p := &program{
-		passiveMode:  *argPassiveMode,
-		intf:         intf,
-		ownIp:        ownIp,
-		socket:       socket,
-		nodes:        make(map[nodeKey]*node),
-		listenDone:   make(chan struct{}),
-		listenArp:    make(chan []byte),
-		listenNbns:   make(chan []byte),
-		listenMdns:   make(chan []byte),
-		uiDrawQueued: true,
+	err = newMethodArp(p)
+	if err != nil {
+		return err
 	}
 
-	p.arpInit()
-	p.nbnsInit()
-	p.mdnsInit()
+	err = newMethodMdns(p)
+	if err != nil {
+		return err
+	}
 
-	go p.listen()
+	err = newMethodNbns(p)
+	if err != nil {
+		return err
+	}
 
-	p.ui()
+	err = newUi(p)
+	if err != nil {
+		return err
+	}
+
+	p.run()
 	return nil
 }
 
-func (p *program) listen() {
-	for {
-		raw, err := p.socket.Read()
-		if err != nil {
-			panic(err)
-		}
+func (p *program) run() {
+	go p.ls.run()
+	go p.ma.run()
+	go p.mm.run()
+	go p.mn.run()
+	go p.ui.run()
 
-		p.listenArp <- raw
-		p.listenNbns <- raw
-		p.listenMdns <- raw
+	nodes := make(map[nodeKey]*node)
 
-		// join before refilling buffer
-		for i := 0; i < 3; i++ {
-			<-p.listenDone
+outer:
+	for rawEvt := range p.events {
+		switch evt := rawEvt.(type) {
+		case programEventArp:
+			key := newNodeKey(evt.srcMac, evt.srcIp)
+
+			if _, ok := nodes[key]; !ok {
+				nodes[key] = &node{
+					lastSeen: time.Now(),
+					mac:      evt.srcMac,
+					ip:       evt.srcIp,
+				}
+
+				if p.passiveMode == false {
+					go p.dnsRequest(key, evt.srcIp)
+					go p.mm.request(evt.srcIp)
+					go p.mn.request(evt.srcIp)
+				}
+
+				// update last seen
+			} else {
+				nodes[key].lastSeen = time.Now()
+			}
+
+		case programEventDns:
+			nodes[evt.key].dns = evt.dns
+
+		case programEventMdns:
+			key := newNodeKey(evt.srcMac, evt.srcIp)
+
+			if _, ok := nodes[key]; !ok {
+				nodes[key] = &node{
+					lastSeen: time.Now(),
+					mac:      evt.srcMac,
+					ip:       evt.srcIp,
+				}
+			}
+
+			nodes[key].lastSeen = time.Now()
+			if nodes[key].mdns != evt.domainName {
+				nodes[key].mdns = evt.domainName
+			}
+
+		case programEventNbns:
+			key := newNodeKey(evt.srcMac, evt.srcIp)
+
+			if _, has := nodes[key]; !has {
+				nodes[key] = &node{
+					lastSeen: time.Now(),
+					mac:      evt.srcMac,
+					ip:       evt.srcIp,
+				}
+			}
+
+			nodes[key].lastSeen = time.Now()
+			if nodes[key].nbns != evt.name {
+				nodes[key].nbns = evt.name
+			}
+
+		case programEventUiGetData:
+			evt.resNodes <- nodes
+			<-evt.done
+
+		case programEventTerminate:
+			break outer
 		}
 	}
+
+	go func() {
+		for rawEvt := range p.events {
+			switch evt := rawEvt.(type) {
+			case programEventUiGetData:
+				evt.resNodes <- nil
+			}
+		}
+	}()
+
+	p.ui.close()
 }
 
 func main() {

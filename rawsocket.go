@@ -24,8 +24,7 @@ func newRawSocket(intf *net.Interface) (*rawSocket, error) {
 	}
 
 	err = syscall.Bind(writer, &syscall.SockaddrLinklayer{
-		Protocol: syscall.ETH_P_IP,
-		Ifindex:  intf.Index,
+		Ifindex: intf.Index,
 	})
 	if err != nil {
 		return nil, err

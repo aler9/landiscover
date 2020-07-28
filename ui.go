@@ -10,212 +10,530 @@ import (
 )
 
 const (
-	drawPeriod = 1 * time.Second
+	drawPeriod      = 1 * time.Second
+	uiColumnPadding = 2
 )
 
-func (p *program) ui() {
-	uilib, err := newUilib()
+type uiTableColumn string
+
+type uiTableRow struct {
+	id    string
+	cells []string
+}
+
+type uiEvent interface {
+	isUiEvent()
+}
+
+type uiEventTermbox struct {
+	tevt termbox.Event
+	done chan struct{}
+}
+
+func (uiEventTermbox) isUiEvent() {}
+
+type uiEventTerminate struct{}
+
+func (uiEventTerminate) isUiEvent() {}
+
+type ui struct {
+	p            *program
+	infoText     string
+	tableScrollX int
+	tableScrollY int
+	tableSortBy  string
+	tableSortAsc bool
+	tableColumns []uiTableColumn
+	tableRows    []uiTableRow
+	selectables  []string
+	selection    string
+
+	events chan uiEvent
+	done   chan struct{}
+}
+
+func newUi(p *program) error {
+	err := termbox.Init()
 	if err != nil {
-		panic(err)
-	}
-	defer uilib.Close()
-
-	// ui state variables
-	infoText := ""
-	tableScrollX := 0
-	tableScrollY := 0
-	tableSortBy := "mac"
-	tableSortAsc := true
-	tableColumns := []uilibTableColumn{
-		"last seen",
-		"mac",
-		"ip",
-		"vendor",
-		"dns",
-		"nbns",
-		"mdns",
-	}
-	var tableRows []uilibTableRow
-	var selectables []string
-	selection := ""
-
-	regenSelectables := func() {
-		sort.Slice(tableRows, func(i, j int) bool {
-			n := 0
-			switch tableSortBy {
-			case "last seen":
-				n = 0
-			case "mac":
-				n = 1
-			case "ip":
-				n = 2
-			case "vendor":
-				n = 3
-			case "dns":
-				n = 4
-			case "nbns":
-				n = 5
-			case "mdns":
-				n = 6
-			}
-			if tableRows[i].Cells[n] != tableRows[j].Cells[n] {
-				if tableSortAsc {
-					return tableRows[i].Cells[n] < tableRows[j].Cells[n]
-				} else {
-					return tableRows[i].Cells[n] > tableRows[j].Cells[n]
-				}
-			}
-			return tableRows[i].Cells[2] < tableRows[j].Cells[2]
-		})
-
-		selectables = nil
-		for _, col := range tableColumns {
-			selectables = append(selectables, "col_"+string(col))
-		}
-		for _, row := range tableRows {
-			selectables = append(selectables, "row_"+row.Id)
-		}
-
-		if selection == "" {
-			selection = selectables[0]
-		}
+		return err
 	}
 
-	dataToUi := func() bool {
-		p.mutex.Lock()
-		defer p.mutex.Unlock()
-
-		if p.uiDrawQueued == false {
-			return false
-		}
-		p.uiDrawQueued = false
-
-		tableRows = func() []uilibTableRow {
-			var ret []uilibTableRow
-			for _, n := range p.nodes {
-				row := uilibTableRow{
-					Id: fmt.Sprintf("%s_%s", n.mac.String(), n.ip.String()),
-					Cells: []string{
-						n.lastSeen.Format("Jan 2 15:04:05"),
-						n.mac.String(),
-						n.ip.String(),
-						macVendor(n.mac),
-						func() string {
-							if n.dns == "" {
-								return "-"
-							}
-							return n.dns
-						}(),
-						func() string {
-							if n.nbns == "" {
-								return "-"
-							}
-							return n.nbns
-						}(),
-						func() string {
-							if n.mdns == "" {
-								return "-"
-							}
-							return n.mdns
-						}(),
-					},
-				}
-				ret = append(ret, row)
-			}
-			return ret
-		}()
-		infoText = fmt.Sprintf("interface: %s%s    entries: %d",
-			p.intf.Name,
-			func() string {
-				if p.passiveMode {
-					return " (passive mode)"
-				}
-				return ""
-			}(),
-			len(tableRows))
-		regenSelectables()
-
-		return true
+	ui := &ui{
+		p:            p,
+		infoText:     "",
+		tableSortBy:  "mac",
+		tableSortAsc: true,
+		tableColumns: []uiTableColumn{
+			"last seen",
+			"mac",
+			"ip",
+			"vendor",
+			"dns",
+			"nbns",
+			"mdns",
+		},
+		events: make(chan uiEvent),
+		done:   make(chan struct{}),
 	}
 
-	dataToUi()
+	p.ui = ui
+	return nil
+}
 
-	ticker := time.NewTicker(drawPeriod)
-	defer ticker.Stop()
-	tickerTerminate := make(chan struct{})
-	tickerDone := make(chan struct{})
+func (u *ui) run() {
+	u.draw()
+
+	periodicRedrawTicker := time.NewTicker(drawPeriod)
+
+	termboxDone := make(chan struct{})
 	go func() {
-		defer func() { tickerDone <- struct{}{} }()
+		defer close(termboxDone)
 		for {
-			select {
-			case <-tickerTerminate:
-				return
-			case <-ticker.C:
-				if dataToUi() == true {
-					uilib.ForceDraw()
+			tevt := termbox.PollEvent()
+			if tevt.Type == termbox.EventInterrupt {
+				break
+			}
+			done := make(chan struct{})
+			u.events <- uiEventTermbox{tevt, done}
+			<-done
+		}
+	}()
+
+outer:
+	for {
+		select {
+		case <-periodicRedrawTicker.C:
+			u.draw()
+
+		case rawEvt := <-u.events:
+			switch evt := rawEvt.(type) {
+			case uiEventTermbox:
+				switch evt.tevt.Type {
+				case termbox.EventKey:
+					switch evt.tevt.Key {
+					case termbox.KeyEsc, termbox.KeyCtrlC, termbox.KeyCtrlX:
+						u.p.events <- programEventTerminate{}
+
+					case termbox.KeyArrowLeft:
+						u.tableScrollX += 1
+						u.draw()
+
+					case termbox.KeyArrowRight:
+						u.tableScrollX -= 1
+						u.draw()
+
+					case termbox.KeyArrowUp:
+						if len(u.selectables) > 0 {
+							oldIndex := func() int {
+								for i, sel := range u.selectables {
+									if sel == u.selection {
+										return i
+									}
+								}
+								return 0
+							}()
+							newIndex := oldIndex - 1
+							if newIndex >= len(u.selectables) {
+								newIndex = len(u.selectables) - 1
+							} else if newIndex < 0 {
+								newIndex = 0
+							}
+							u.selection = u.selectables[newIndex]
+						}
+						u.draw()
+
+					case termbox.KeyArrowDown:
+						if len(u.selectables) > 0 {
+							oldIndex := func() int {
+								for i, sel := range u.selectables {
+									if sel == u.selection {
+										return i
+									}
+								}
+								return 0
+							}()
+							newIndex := oldIndex + 1
+							if newIndex >= len(u.selectables) {
+								newIndex = len(u.selectables) - 1
+							} else if newIndex < 0 {
+								newIndex = 0
+							}
+							u.selection = u.selectables[newIndex]
+						}
+						u.draw()
+
+					case termbox.KeyPgup:
+						_, termHeight := termbox.Size()
+						u.onMoveY(-(termHeight - 9))
+						u.draw()
+
+					case termbox.KeyPgdn:
+						_, termHeight := termbox.Size()
+						u.onMoveY(termHeight - 9)
+						u.draw()
+
+					case termbox.KeyEnter, termbox.KeySpace:
+						if strings.HasPrefix(u.selection, "col_") {
+							for _, col := range u.tableColumns {
+								if u.selection == "col_"+string(col) {
+									if u.tableSortBy == string(col) {
+										u.tableSortAsc = !u.tableSortAsc
+									} else {
+										u.tableSortBy = string(col)
+										u.tableSortAsc = true
+									}
+									break
+								}
+							}
+						}
+						u.draw()
+
+					default:
+						switch evt.tevt.Ch {
+						case 'q', 'Q':
+							u.p.events <- programEventTerminate{}
+						}
+					}
+
+				case termbox.EventResize:
+					u.draw()
+
+				case termbox.EventError:
+					panic(evt.tevt.Err)
 				}
+				close(evt.done)
+
+			case uiEventTerminate:
+				break outer
+			}
+		}
+	}
+
+	periodicRedrawTicker.Stop()
+
+	go func() {
+		for rawEvt := range u.events {
+			switch evt := rawEvt.(type) {
+			case uiEventTermbox:
+				close(evt.done)
 			}
 		}
 	}()
 
-	uilib.OnMoveX = func(value int) {
-		tableScrollX += value
+	termbox.Interrupt()
+	<-termboxDone
+	termbox.Close()
+
+	close(u.events)
+	close(u.done)
+}
+
+func (u *ui) close() {
+	u.events <- uiEventTerminate{}
+	<-u.done
+}
+
+func (u *ui) onMoveY(value int) {
+	oldIndex := func() int {
+		for i, sel := range u.selectables {
+			if sel == u.selection {
+				return i
+			}
+		}
+		return 0
+	}()
+	newIndex := oldIndex + value
+	if newIndex >= len(u.selectables) {
+		newIndex = len(u.selectables) - 1
+	} else if newIndex < 0 {
+		newIndex = 0
+	}
+	u.selection = u.selectables[newIndex]
+}
+
+func (u *ui) draw() {
+	u.gatherData()
+
+	termbox.Clear(termbox.ColorBlack, termbox.ColorBlack)
+	termWidth, termHeight := termbox.Size() // must be called after Clear()
+
+	u.drawRect(0, 0, termWidth, 3)
+
+	u.drawClippedText(1, termWidth-2, 1, 1, u.infoText,
+		termbox.ColorWhite, termbox.ColorBlack)
+
+	u.drawRect(0, 3, termWidth, termHeight-3)
+
+	u.drawScrollableTable(1, 4, termWidth-2, termHeight-5,
+		u.selection, u.tableSortBy, u.tableSortAsc,
+		u.tableColumns, u.tableRows, &u.tableScrollX, &u.tableScrollY)
+
+	termbox.Flush()
+}
+
+func (u *ui) gatherData() {
+	resNodes := make(chan map[nodeKey]*node)
+	done := make(chan struct{})
+	u.p.events <- programEventUiGetData{
+		resNodes: resNodes,
+		done:     done,
+	}
+	nodes := <-resNodes
+
+	// program is terminating
+	if nodes == nil {
+		return
 	}
 
-	uilib.OnMoveY = func(value int) {
-		oldIndex := func() int {
-			for i, sel := range selectables {
-				if sel == selection {
+	u.tableRows = func() []uiTableRow {
+		var ret []uiTableRow
+		for _, n := range nodes {
+			row := uiTableRow{
+				id: fmt.Sprintf("%s_%s", n.mac.String(), n.ip.String()),
+				cells: []string{
+					n.lastSeen.Format("Jan 2 15:04:05"),
+					n.mac.String(),
+					n.ip.String(),
+					macVendor(n.mac),
+					func() string {
+						if n.dns == "" {
+							return "-"
+						}
+						return n.dns
+					}(),
+					func() string {
+						if n.nbns == "" {
+							return "-"
+						}
+						return n.nbns
+					}(),
+					func() string {
+						if n.mdns == "" {
+							return "-"
+						}
+						return n.mdns
+					}(),
+				},
+			}
+			ret = append(ret, row)
+		}
+		return ret
+	}()
+
+	u.infoText = fmt.Sprintf("interface: %s%s    entries: %d",
+		u.p.intf.Name,
+		func() string {
+			if u.p.passiveMode {
+				return " (passive mode)"
+			}
+			return ""
+		}(),
+		len(u.tableRows))
+
+	sort.Slice(u.tableRows, func(i, j int) bool {
+		n := 0
+		switch u.tableSortBy {
+		case "last seen":
+			n = 0
+		case "mac":
+			n = 1
+		case "ip":
+			n = 2
+		case "vendor":
+			n = 3
+		case "dns":
+			n = 4
+		case "nbns":
+			n = 5
+		case "mdns":
+			n = 6
+		}
+		if u.tableRows[i].cells[n] != u.tableRows[j].cells[n] {
+			if u.tableSortAsc {
+				return u.tableRows[i].cells[n] < u.tableRows[j].cells[n]
+			} else {
+				return u.tableRows[i].cells[n] > u.tableRows[j].cells[n]
+			}
+		}
+		return u.tableRows[i].cells[2] < u.tableRows[j].cells[2]
+	})
+
+	u.selectables = nil
+	for _, col := range u.tableColumns {
+		u.selectables = append(u.selectables, "col_"+string(col))
+	}
+	for _, row := range u.tableRows {
+		u.selectables = append(u.selectables, "row_"+row.id)
+	}
+
+	if u.selection == "" {
+		u.selection = u.selectables[0]
+	}
+
+	close(done)
+}
+
+func (u *ui) drawRect(startX int, startY int, width int, height int) {
+	endX := startX + width - 1
+	endY := startY + height - 1
+
+	termbox.SetCell(startX, startY, 0x250C, termbox.ColorWhite, termbox.ColorBlack)
+	termbox.SetCell(endX, startY, 0x2510, termbox.ColorWhite, termbox.ColorBlack)
+	termbox.SetCell(startX, endY, 0x2514, termbox.ColorWhite, termbox.ColorBlack)
+	termbox.SetCell(endX, endY, 0x2518, termbox.ColorWhite, termbox.ColorBlack)
+
+	for x := startX + 1; x < endX; x++ {
+		termbox.SetCell(x, startY, 0x2500, termbox.ColorWhite, termbox.ColorBlack)
+		termbox.SetCell(x, endY, 0x2500, termbox.ColorWhite, termbox.ColorBlack)
+	}
+	for y := startY + 1; y < endY; y++ {
+		termbox.SetCell(startX, y, 0x2502, termbox.ColorWhite, termbox.ColorBlack)
+		termbox.SetCell(endX, y, 0x2502, termbox.ColorWhite, termbox.ColorBlack)
+	}
+}
+
+func (u *ui) drawClippedText(startX, endX, x, y int, text string, fg, bg termbox.Attribute) {
+	for _, r := range text {
+		if x >= startX && x <= endX {
+			termbox.SetCell(x, y, r, fg, bg)
+		}
+		x++
+	}
+}
+
+func (u *ui) drawScrollableTable(startX int, startY int, width int, height int,
+	selection string, sortBy string, sortAsc bool, columns []uiTableColumn,
+	rows []uiTableRow, scrollX *int, scrollY *int) {
+	endX := startX + width - 1
+	endY := startY + height - 1
+
+	// compute columns width
+	colWidths := make([]int, len(columns))
+	for i, col := range columns {
+		width := len(col) + 2 // leave additional space for order arrow
+		if colWidths[i] < width {
+			colWidths[i] = width
+		}
+	}
+	for _, row := range rows {
+		for i, cell := range row.cells {
+			if colWidths[i] < len(cell) {
+				colWidths[i] = len(cell)
+			}
+		}
+	}
+
+	// get table width
+	tableWidth := 0
+	for i := range columns {
+		tableWidth += colWidths[i] + uiColumnPadding
+	}
+
+	// get table height
+	tableHeight := 2 + len(rows)
+
+	// limit scroll
+	xMin := width - tableWidth - 1
+	if *scrollX < xMin {
+		*scrollX = xMin
+	}
+	xMax := 0
+	if *scrollX > xMax {
+		*scrollX = xMax
+	}
+	selectionY := func() int {
+		if strings.HasPrefix(selection, "row_") {
+			for i, row := range rows {
+				if selection == "row_"+row.id {
 					return i
 				}
 			}
-			return 0
-		}()
-		newIndex := oldIndex + value
-		if newIndex >= len(selectables) {
-			newIndex = len(selectables) - 1
-		} else if newIndex < 0 {
-			newIndex = 0
 		}
-		selection = selectables[newIndex]
+		return 0
+	}()
+	yMax := height - 4 - selectionY
+	if *scrollY > yMax {
+		*scrollY = yMax
+	}
+	yMin := -selectionY
+	if *scrollY < yMin {
+		*scrollY = yMin
 	}
 
-	uilib.OnEnter = func() {
-		if strings.HasPrefix(selection, "col_") {
-			for _, col := range tableColumns {
-				if selection == "col_"+string(col) {
-					if tableSortBy == string(col) {
-						tableSortAsc = !tableSortAsc
-					} else {
-						tableSortBy = string(col)
-						tableSortAsc = true
-					}
-					regenSelectables()
-					break
-				}
+	// draw scrollbars
+	u.drawScrollbar(true, endX, startY, height, tableHeight, *scrollY)
+	u.drawScrollbar(false, endY, startX, width, tableWidth, *scrollX)
+
+	// reduce space
+	endX -= 1
+	endY -= 1
+	width -= 1
+	height -= 1
+
+	// draw columns
+	x := startX + *scrollX
+	for i, col := range columns {
+		fg := termbox.ColorWhite
+		bg := termbox.ColorBlack
+		if selection == "col_"+string(col) {
+			fg = termbox.ColorBlack
+			bg = termbox.ColorWhite
+		}
+
+		text := string(col)
+		if sortBy == string(col) {
+			if sortAsc {
+				text += " " + string(rune(0x25B2))
+			} else {
+				text += " " + string(rune(0x25BC))
 			}
 		}
+		u.drawClippedText(startX, endX, x, startY, text, fg, bg)
+		x += colWidths[i] + uiColumnPadding
 	}
 
-	uilib.OnDraw = func(termWidth int, termHeight int) {
-		uilib.DrawBorder(0, 0, termWidth, 3)
+	// draw rows
+	y := startY + 2 + *scrollY
+	for _, row := range rows {
+		fg := termbox.ColorWhite
+		bg := termbox.ColorBlack
+		if selection == "row_"+row.id {
+			fg = termbox.ColorBlack
+			bg = termbox.ColorWhite
+		}
 
-		uilib.DrawClippedText(1, termWidth-2, 1, 1, infoText,
-			termbox.ColorWhite, termbox.ColorBlack)
-
-		uilib.DrawBorder(0, 3, termWidth, termHeight-3)
-
-		uilib.DrawScrollableTable(1, 4, termWidth-2, termHeight-5,
-			selection, tableSortBy, tableSortAsc,
-			tableColumns, tableRows, &tableScrollX, &tableScrollY)
+		if y >= (startY+2) && y <= endY {
+			x := startX + *scrollX
+			for i, cell := range row.cells {
+				u.drawClippedText(startX, endX, x, y, cell, fg, bg)
+				x += colWidths[i] + uiColumnPadding
+			}
+		}
+		y += 1
 	}
-
-	uilib.Loop()
-
-	tickerTerminate <- struct{}{}
-	<-tickerDone
 }
 
-func (p *program) uiQueueDraw() {
-	p.uiDrawQueued = true
+func (u *ui) drawScrollbar(vertical bool, fixedCoord int, start int,
+	screenSize int, pageSize int, cur int) {
+	scrollbarMaxSize := screenSize - 1
+	scrollbarSize := scrollbarMaxSize
+	if pageSize > scrollbarMaxSize {
+		scrollbarSize = scrollbarSize * scrollbarMaxSize / pageSize
+	}
+
+	scrollZone := (scrollbarMaxSize - scrollbarSize)
+	min := scrollbarMaxSize - pageSize
+	if min != 0 {
+		start += (scrollZone - scrollZone*(cur-min)/(-min))
+	}
+
+	if vertical {
+		for y := start; y < (start + scrollbarSize); y++ {
+			termbox.SetCell(fixedCoord, y, 0x2588, termbox.ColorGreen, termbox.ColorBlack)
+		}
+	} else {
+		for x := start; x < (start + scrollbarSize); x++ {
+			termbox.SetCell(x, fixedCoord, 0x2585, termbox.ColorGreen, termbox.ColorBlack)
+		}
+	}
 }
