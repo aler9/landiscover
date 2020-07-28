@@ -320,7 +320,7 @@ func (u *ui) gatherData() {
 		return ret
 	}()
 
-	u.infoText = fmt.Sprintf("interface: %s%s    entries: %d",
+	u.infoText = fmt.Sprintf("interface: %s%s    entries: %d    last update: %s",
 		u.p.intf.Name,
 		func() string {
 			if u.p.passiveMode {
@@ -328,7 +328,8 @@ func (u *ui) gatherData() {
 			}
 			return ""
 		}(),
-		len(u.tableRows))
+		len(u.tableRows),
+		time.Now().Format("Jan 2 15:04:05"))
 
 	sort.Slice(u.tableRows, func(i, j int) bool {
 		n := 0
