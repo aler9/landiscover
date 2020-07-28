@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"net"
 	"sort"
 	"strings"
 	"time"
@@ -320,6 +322,8 @@ func (u *ui) gatherData() {
 		return ret
 	}()
 
+	close(done)
+
 	u.infoText = fmt.Sprintf("interface: %s%s    entries: %d    last update: %s",
 		u.p.intf.Name,
 		func() string {
@@ -349,13 +353,29 @@ func (u *ui) gatherData() {
 		case "mdns":
 			n = 6
 		}
-		if u.tableRows[i].cells[n] != u.tableRows[j].cells[n] {
-			if u.tableSortAsc {
-				return u.tableRows[i].cells[n] < u.tableRows[j].cells[n]
-			} else {
-				return u.tableRows[i].cells[n] > u.tableRows[j].cells[n]
+
+		if u.tableSortBy == "ip" {
+			if u.tableRows[i].cells[n] != u.tableRows[j].cells[n] {
+				ipa := net.ParseIP(u.tableRows[i].cells[n])
+				ipb := net.ParseIP(u.tableRows[j].cells[n])
+
+				if u.tableSortAsc {
+					return bytes.Compare(ipa, ipb) < 0
+				} else {
+					return bytes.Compare(ipa, ipb) >= 0
+				}
+			}
+
+		} else {
+			if u.tableRows[i].cells[n] != u.tableRows[j].cells[n] {
+				if u.tableSortAsc {
+					return u.tableRows[i].cells[n] < u.tableRows[j].cells[n]
+				} else {
+					return u.tableRows[i].cells[n] > u.tableRows[j].cells[n]
+				}
 			}
 		}
+
 		return u.tableRows[i].cells[2] < u.tableRows[j].cells[2]
 	})
 
@@ -370,8 +390,6 @@ func (u *ui) gatherData() {
 	if u.selection == "" {
 		u.selection = u.selectables[0]
 	}
-
-	close(done)
 }
 
 func (u *ui) drawRect(startX int, startY int, width int, height int) {
