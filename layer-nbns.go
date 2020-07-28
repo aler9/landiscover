@@ -21,27 +21,27 @@ type layerNbns struct {
 	Truncated       bool
 	Recursion       bool
 	Broadcast       bool
-	Questions       []NbnsQuestion
-	Answers         []NbnsAnswer
+	Questions       []nbnsQuestion
+	Answers         []nbnsAnswer
 	AuthorityCount  uint16
 	AdditionalCount uint16
 }
 
-type NbnsQuestion struct {
+type nbnsQuestion struct {
 	Query string
 	Type  uint16
 	Class uint16
 }
 
-type NbnsAnswer struct {
+type nbnsAnswer struct {
 	Query string
 	Type  uint16
 	Class uint16
 	TTL   uint32
-	Names []NbnsAnswerName
+	Names []nbnsAnswerName
 }
 
-type NbnsAnswerName struct {
+type nbnsAnswerName struct {
 	Name  string
 	Type  uint8
 	Flags uint16
@@ -110,7 +110,7 @@ func (l *layerNbns) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) err
 
 	l.Answers = nil
 	for i := uint16(0); i < answerCount; i++ {
-		a := NbnsAnswer{}
+		a := nbnsAnswer{}
 
 		var read int
 		a.Query, read = dnsQueryDecode(data, pos)
@@ -131,7 +131,7 @@ func (l *layerNbns) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) err
 			pos2++
 
 			for j := uint8(0); j < nameCount; j++ {
-				a.Names = append(a.Names, NbnsAnswerName{
+				a.Names = append(a.Names, nbnsAnswerName{
 					Name:  strings.TrimSuffix(string(data[pos2:pos2+15]), " "),
 					Type:  data[pos2+15],
 					Flags: binary.BigEndian.Uint16(data[pos2+16 : pos2+18]),

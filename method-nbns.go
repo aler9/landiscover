@@ -100,7 +100,7 @@ func (mn *methodNbns) request(destIp net.IP) {
 
 	nbns := layerNbns{
 		TransactionId: randUint16(),
-		Questions: []NbnsQuestion{
+		Questions: []nbnsQuestion{
 			{
 				Query: "CKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
 				Type:  0x21, // NB_STAT

@@ -132,7 +132,7 @@ func (mm *methodMdns) request(destIp net.IP) {
 	udp.SetNetworkLayerForChecksum(&ip)
 	mdns := layerMdns{
 		TransactionId: 0,
-		Questions: []MdnsQuestion{
+		Questions: []mdnsQuestion{
 			{
 				Query: fmt.Sprintf("%d.%d.%d.%d.in-addr.arpa", destIp[3], destIp[2], destIp[1], destIp[0]),
 				Type:  0x0C, // domain pointer

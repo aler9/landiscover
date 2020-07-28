@@ -20,19 +20,19 @@ type layerMdns struct {
 	TransactionId   uint16
 	IsResponse      bool
 	Opcode          uint8
-	Questions       []MdnsQuestion
-	Answers         []MdnsAnswer
+	Questions       []mdnsQuestion
+	Answers         []mdnsAnswer
 	AuthorityCount  uint16
 	AdditionalCount uint16
 }
 
-type MdnsQuestion struct {
+type mdnsQuestion struct {
 	Query string
 	Type  uint16
 	Class uint16
 }
 
-type MdnsAnswer struct {
+type mdnsAnswer struct {
 	Query      string
 	Type       uint16
 	Class      uint16
@@ -96,7 +96,7 @@ func (l *layerMdns) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) err
 
 	l.Answers = nil
 	for i := uint16(0); i < answerCount; i++ {
-		a := MdnsAnswer{}
+		a := mdnsAnswer{}
 
 		var read int
 		a.Query, read = dnsQueryDecode(data, pos)

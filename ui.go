@@ -468,8 +468,6 @@ func (u *ui) drawScrollableTable(startX int, startY int, width int, height int,
 	// reduce space
 	endX -= 1
 	endY -= 1
-	width -= 1
-	height -= 1
 
 	// draw columns
 	x := startX + *scrollX
