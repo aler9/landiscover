@@ -72,7 +72,7 @@ func (ma *methodArp) runListener() {
 			return
 		}
 
-		ma.p.events <- programEventArp{
+		ma.p.arp <- arpReq{
 			srcMac: srcMac,
 			srcIp:  srcIp,
 		}

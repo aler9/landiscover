@@ -29,10 +29,6 @@ func newMethodNbns(p *program) error {
 }
 
 func (mn *methodNbns) run() {
-	go mn.runListener()
-}
-
-func (mn *methodNbns) runListener() {
 	var decodedLayers []gopacket.LayerType
 	var eth layers.Ethernet
 	var ip layers.IPv4
@@ -73,7 +69,7 @@ func (mn *methodNbns) runListener() {
 		srcMac := copyMac(eth.SrcMAC)
 		srcIp := copyIp(ip.SrcIP)
 
-		mn.p.events <- programEventNbns{
+		mn.p.nbns <- nbnsReq{
 			srcMac: srcMac,
 			srcIp:  srcIp,
 			name:   name,

@@ -19,7 +19,7 @@ func (p *program) dnsRequest(key nodeKey, destIp net.IP) {
 		dns = dns[:len(dns)-1]
 	}
 
-	p.events <- programEventDns{
+	p.dns <- dnsReq{
 		key: key,
 		dns: dns,
 	}

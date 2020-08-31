@@ -23,20 +23,10 @@ type uiTableRow struct {
 	cells []string
 }
 
-type uiEvent interface {
-	isUiEvent()
-}
-
-type uiEventTermbox struct {
+type termboxReq struct {
 	tevt termbox.Event
 	done chan struct{}
 }
-
-func (uiEventTermbox) isUiEvent() {}
-
-type uiEventTerminate struct{}
-
-func (uiEventTerminate) isUiEvent() {}
 
 type ui struct {
 	p            *program
@@ -50,8 +40,9 @@ type ui struct {
 	selectables  []string
 	selection    string
 
-	events chan uiEvent
-	done   chan struct{}
+	termbox   chan termboxReq
+	terminate chan struct{}
+	done      chan struct{}
 }
 
 func newUi(p *program) error {
@@ -74,8 +65,9 @@ func newUi(p *program) error {
 			"nbns",
 			"mdns",
 		},
-		events: make(chan uiEvent),
-		done:   make(chan struct{}),
+		termbox:   make(chan termboxReq),
+		terminate: make(chan struct{}),
+		done:      make(chan struct{}),
 	}
 
 	p.ui = ui
@@ -84,8 +76,6 @@ func newUi(p *program) error {
 
 func (u *ui) run() {
 	u.draw()
-
-	periodicRedrawTicker := time.NewTicker(drawPeriod)
 
 	termboxDone := make(chan struct{})
 	go func() {
@@ -96,10 +86,13 @@ func (u *ui) run() {
 				break
 			}
 			done := make(chan struct{})
-			u.events <- uiEventTermbox{tevt, done}
+			u.termbox <- termboxReq{tevt, done}
 			<-done
 		}
 	}()
+
+	periodicRedrawTicker := time.NewTicker(drawPeriod)
+	defer periodicRedrawTicker.Stop()
 
 outer:
 	for {
@@ -107,117 +100,112 @@ outer:
 		case <-periodicRedrawTicker.C:
 			u.draw()
 
-		case rawEvt := <-u.events:
-			switch evt := rawEvt.(type) {
-			case uiEventTermbox:
-				switch evt.tevt.Type {
-				case termbox.EventKey:
-					switch evt.tevt.Key {
-					case termbox.KeyEsc, termbox.KeyCtrlC, termbox.KeyCtrlX:
-						u.p.events <- programEventTerminate{}
+		case req := <-u.termbox:
+			switch req.tevt.Type {
+			case termbox.EventKey:
+				switch req.tevt.Key {
+				case termbox.KeyEsc, termbox.KeyCtrlC, termbox.KeyCtrlX:
+					close(u.p.terminate)
 
-					case termbox.KeyArrowLeft:
-						u.tableScrollX += 1
-						u.draw()
-
-					case termbox.KeyArrowRight:
-						u.tableScrollX -= 1
-						u.draw()
-
-					case termbox.KeyArrowUp:
-						if len(u.selectables) > 0 {
-							oldIndex := func() int {
-								for i, sel := range u.selectables {
-									if sel == u.selection {
-										return i
-									}
-								}
-								return 0
-							}()
-							newIndex := oldIndex - 1
-							if newIndex >= len(u.selectables) {
-								newIndex = len(u.selectables) - 1
-							} else if newIndex < 0 {
-								newIndex = 0
-							}
-							u.selection = u.selectables[newIndex]
-						}
-						u.draw()
-
-					case termbox.KeyArrowDown:
-						if len(u.selectables) > 0 {
-							oldIndex := func() int {
-								for i, sel := range u.selectables {
-									if sel == u.selection {
-										return i
-									}
-								}
-								return 0
-							}()
-							newIndex := oldIndex + 1
-							if newIndex >= len(u.selectables) {
-								newIndex = len(u.selectables) - 1
-							} else if newIndex < 0 {
-								newIndex = 0
-							}
-							u.selection = u.selectables[newIndex]
-						}
-						u.draw()
-
-					case termbox.KeyPgup:
-						_, termHeight := termbox.Size()
-						u.onMoveY(-(termHeight - 9))
-						u.draw()
-
-					case termbox.KeyPgdn:
-						_, termHeight := termbox.Size()
-						u.onMoveY(termHeight - 9)
-						u.draw()
-
-					case termbox.KeyEnter, termbox.KeySpace:
-						if strings.HasPrefix(u.selection, "col_") {
-							for _, col := range u.tableColumns {
-								if u.selection == "col_"+string(col) {
-									if u.tableSortBy == string(col) {
-										u.tableSortAsc = !u.tableSortAsc
-									} else {
-										u.tableSortBy = string(col)
-										u.tableSortAsc = true
-									}
-									break
-								}
-							}
-						}
-						u.draw()
-
-					default:
-						switch evt.tevt.Ch {
-						case 'q', 'Q':
-							u.p.events <- programEventTerminate{}
-						}
-					}
-
-				case termbox.EventResize:
+				case termbox.KeyArrowLeft:
+					u.tableScrollX += 1
 					u.draw()
 
-				case termbox.EventError:
-					panic(evt.tevt.Err)
-				}
-				close(evt.done)
+				case termbox.KeyArrowRight:
+					u.tableScrollX -= 1
+					u.draw()
 
-			case uiEventTerminate:
-				break outer
+				case termbox.KeyArrowUp:
+					if len(u.selectables) > 0 {
+						oldIndex := func() int {
+							for i, sel := range u.selectables {
+								if sel == u.selection {
+									return i
+								}
+							}
+							return 0
+						}()
+						newIndex := oldIndex - 1
+						if newIndex >= len(u.selectables) {
+							newIndex = len(u.selectables) - 1
+						} else if newIndex < 0 {
+							newIndex = 0
+						}
+						u.selection = u.selectables[newIndex]
+					}
+					u.draw()
+
+				case termbox.KeyArrowDown:
+					if len(u.selectables) > 0 {
+						oldIndex := func() int {
+							for i, sel := range u.selectables {
+								if sel == u.selection {
+									return i
+								}
+							}
+							return 0
+						}()
+						newIndex := oldIndex + 1
+						if newIndex >= len(u.selectables) {
+							newIndex = len(u.selectables) - 1
+						} else if newIndex < 0 {
+							newIndex = 0
+						}
+						u.selection = u.selectables[newIndex]
+					}
+					u.draw()
+
+				case termbox.KeyPgup:
+					_, termHeight := termbox.Size()
+					u.onMoveY(-(termHeight - 9))
+					u.draw()
+
+				case termbox.KeyPgdn:
+					_, termHeight := termbox.Size()
+					u.onMoveY(termHeight - 9)
+					u.draw()
+
+				case termbox.KeyEnter, termbox.KeySpace:
+					if strings.HasPrefix(u.selection, "col_") {
+						for _, col := range u.tableColumns {
+							if u.selection == "col_"+string(col) {
+								if u.tableSortBy == string(col) {
+									u.tableSortAsc = !u.tableSortAsc
+								} else {
+									u.tableSortBy = string(col)
+									u.tableSortAsc = true
+								}
+								break
+							}
+						}
+					}
+					u.draw()
+
+				default:
+					switch req.tevt.Ch {
+					case 'q', 'Q':
+						close(u.p.terminate)
+					}
+				}
+
+			case termbox.EventResize:
+				u.draw()
+
+			case termbox.EventError:
+				panic(req.tevt.Err)
 			}
+			close(req.done)
+
+		case <-u.terminate:
+			break outer
 		}
 	}
 
-	periodicRedrawTicker.Stop()
-
 	go func() {
-		for rawEvt := range u.events {
-			switch evt := rawEvt.(type) {
-			case uiEventTermbox:
-				close(evt.done)
+		for {
+			_, ok := <-u.termbox
+			if !ok {
+				return
 			}
 		}
 	}()
@@ -226,12 +214,12 @@ outer:
 	<-termboxDone
 	termbox.Close()
 
-	close(u.events)
+	close(u.termbox)
 	close(u.done)
 }
 
 func (u *ui) close() {
-	u.events <- uiEventTerminate{}
+	close(u.terminate)
 	<-u.done
 }
 
@@ -276,7 +264,7 @@ func (u *ui) draw() {
 func (u *ui) gatherData() {
 	resNodes := make(chan map[nodeKey]*node)
 	done := make(chan struct{})
-	u.p.events <- programEventUiGetData{
+	u.p.uiGetData <- uiGetDataReq{
 		resNodes: resNodes,
 		done:     done,
 	}

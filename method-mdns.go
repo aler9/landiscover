@@ -35,7 +35,7 @@ func (mm *methodMdns) run() {
 	go mm.runListener()
 
 	if mm.p.passiveMode == false {
-		// continuously poll mdns to detect changes or skipped hosts
+		// continuously poll mdns in order to detect changes or skipped hosts
 		go mm.runPeriodicRequests()
 	}
 }
@@ -97,7 +97,7 @@ func (mm *methodMdns) runListener() {
 
 		domainName = strings.TrimSuffix(domainName, ".local")
 
-		mm.p.events <- programEventMdns{
+		mm.p.mdns <- mdnsReq{
 			srcMac:     srcMac,
 			srcIp:      srcIp,
 			domainName: domainName,

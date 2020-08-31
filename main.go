@@ -34,50 +34,32 @@ type node struct {
 	mdns     string
 }
 
-type programEvent interface {
-	isProgramEvent()
-}
-
-type programEventArp struct {
+type arpReq struct {
 	srcMac net.HardwareAddr
 	srcIp  net.IP
 }
 
-func (programEventArp) isProgramEvent() {}
-
-type programEventDns struct {
+type dnsReq struct {
 	key nodeKey
 	dns string
 }
 
-func (programEventDns) isProgramEvent() {}
-
-type programEventMdns struct {
+type mdnsReq struct {
 	srcMac     net.HardwareAddr
 	srcIp      net.IP
 	domainName string
 }
 
-func (programEventMdns) isProgramEvent() {}
-
-type programEventNbns struct {
+type nbnsReq struct {
 	srcMac net.HardwareAddr
 	srcIp  net.IP
 	name   string
 }
 
-func (programEventNbns) isProgramEvent() {}
-
-type programEventUiGetData struct {
+type uiGetDataReq struct {
 	resNodes chan map[nodeKey]*node
 	done     chan struct{}
 }
-
-func (programEventUiGetData) isProgramEvent() {}
-
-type programEventTerminate struct{}
-
-func (programEventTerminate) isProgramEvent() {}
 
 type program struct {
 	passiveMode bool
@@ -89,7 +71,12 @@ type program struct {
 	mn          *methodNbns
 	ui          *ui
 
-	events chan programEvent
+	arp       chan arpReq
+	dns       chan dnsReq
+	mdns      chan mdnsReq
+	nbns      chan nbnsReq
+	uiGetData chan uiGetDataReq
+	terminate chan struct{}
 }
 
 func newProgram() error {
@@ -162,7 +149,12 @@ func newProgram() error {
 		passiveMode: *argPassiveMode,
 		intf:        intf,
 		ownIp:       ownIp,
-		events:      make(chan programEvent),
+		arp:         make(chan arpReq),
+		dns:         make(chan dnsReq),
+		mdns:        make(chan mdnsReq),
+		nbns:        make(chan nbnsReq),
+		uiGetData:   make(chan uiGetDataReq),
+		terminate:   make(chan struct{}),
 	}
 
 	err = newListener(p)
@@ -191,6 +183,7 @@ func newProgram() error {
 	}
 
 	p.run()
+
 	return nil
 }
 
@@ -204,22 +197,22 @@ func (p *program) run() {
 	nodes := make(map[nodeKey]*node)
 
 outer:
-	for rawEvt := range p.events {
-		switch evt := rawEvt.(type) {
-		case programEventArp:
-			key := newNodeKey(evt.srcMac, evt.srcIp)
+	for {
+		select {
+		case req := <-p.arp:
+			key := newNodeKey(req.srcMac, req.srcIp)
 
 			if _, ok := nodes[key]; !ok {
 				nodes[key] = &node{
 					lastSeen: time.Now(),
-					mac:      evt.srcMac,
-					ip:       evt.srcIp,
+					mac:      req.srcMac,
+					ip:       req.srcIp,
 				}
 
 				if p.passiveMode == false {
-					go p.dnsRequest(key, evt.srcIp)
-					go p.mm.request(evt.srcIp)
-					go p.mn.request(evt.srcIp)
+					go p.dnsRequest(key, req.srcIp)
+					go p.mm.request(req.srcIp)
+					go p.mn.request(req.srcIp)
 				}
 
 				// update last seen
@@ -227,60 +220,73 @@ outer:
 				nodes[key].lastSeen = time.Now()
 			}
 
-		case programEventDns:
-			nodes[evt.key].dns = evt.dns
+		case req := <-p.dns:
+			nodes[req.key].dns = req.dns
 
-		case programEventMdns:
-			key := newNodeKey(evt.srcMac, evt.srcIp)
+		case req := <-p.mdns:
+			key := newNodeKey(req.srcMac, req.srcIp)
 
 			if _, ok := nodes[key]; !ok {
 				nodes[key] = &node{
 					lastSeen: time.Now(),
-					mac:      evt.srcMac,
-					ip:       evt.srcIp,
+					mac:      req.srcMac,
+					ip:       req.srcIp,
 				}
 			}
 
 			nodes[key].lastSeen = time.Now()
-			if nodes[key].mdns != evt.domainName {
-				nodes[key].mdns = evt.domainName
+			if nodes[key].mdns != req.domainName {
+				nodes[key].mdns = req.domainName
 			}
 
-		case programEventNbns:
-			key := newNodeKey(evt.srcMac, evt.srcIp)
+		case req := <-p.nbns:
+			key := newNodeKey(req.srcMac, req.srcIp)
 
 			if _, has := nodes[key]; !has {
 				nodes[key] = &node{
 					lastSeen: time.Now(),
-					mac:      evt.srcMac,
-					ip:       evt.srcIp,
+					mac:      req.srcMac,
+					ip:       req.srcIp,
 				}
 			}
 
 			nodes[key].lastSeen = time.Now()
-			if nodes[key].nbns != evt.name {
-				nodes[key].nbns = evt.name
+			if nodes[key].nbns != req.name {
+				nodes[key].nbns = req.name
 			}
 
-		case programEventUiGetData:
-			evt.resNodes <- nodes
-			<-evt.done
+		case req := <-p.uiGetData:
+			req.resNodes <- nodes
+			<-req.done
 
-		case programEventTerminate:
+		case <-p.terminate:
 			break outer
 		}
 	}
 
 	go func() {
-		for rawEvt := range p.events {
-			switch evt := rawEvt.(type) {
-			case programEventUiGetData:
-				evt.resNodes <- nil
+		for {
+			select {
+			case _, ok := <-p.arp:
+				if !ok {
+					return
+				}
+			case <-p.dns:
+			case <-p.mdns:
+			case <-p.nbns:
+			case req := <-p.uiGetData:
+				req.resNodes <- nil
 			}
 		}
 	}()
 
 	p.ui.close()
+
+	/*close(p.arp)
+	close(p.dns)
+	close(p.mdns)
+	close(p.nbns)
+	close(p.uiGetData)*/
 }
 
 func main() {
