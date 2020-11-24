@@ -11,7 +11,7 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-var Version = "v0.0.0"
+var version = "v0.0.0"
 
 type nodeKey struct {
 	mac [6]byte
@@ -81,7 +81,7 @@ type program struct {
 
 func newProgram() error {
 	k := kingpin.New("landiscover",
-		"landiscover "+Version+"\n\nMachine and service discovery tool.")
+		"landiscover "+version+"\n\nMachine and service discovery tool.")
 
 	argInterface := k.Arg("interface", "Interface to listen to").String()
 	argPassiveMode := k.Flag("passive", "do not send any packet").Default("false").Bool()

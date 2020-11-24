@@ -86,7 +86,7 @@ release:
 release-nodocker:
 	$(eval export CGO_ENABLED=0)
 	$(eval VERSION := $(shell git describe --tags))
-	$(eval GOBUILD := go build -ldflags '-X main.Version=$(VERSION)')
+	$(eval GOBUILD := go build -ldflags '-X main.version=$(VERSION)')
 	rm -rf tmp && mkdir tmp
 	rm -rf release && mkdir release
 
@@ -112,7 +112,7 @@ COPY . ./
 ARG VERSION
 ARG OPTS
 RUN export CGO_ENABLED=0 $${OPTS} \
-	&& go build -ldflags "-X main.Version=$$VERSION" -o /landiscover
+	&& go build -ldflags "-X main.version=$$VERSION" -o /landiscover
 
 FROM scratch
 COPY --from=build /landiscover /landiscover
