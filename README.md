@@ -1,7 +1,7 @@
 
 # landiscover
 
-[![Build Status](https://travis-ci.com/aler9/landiscover.svg?branch=master)](https://travis-ci.com/aler9/landiscover)
+[![Test](https://github.com/aler9/landiscover/workflows/test/badge.svg)](https://github.com/aler9/landiscover/actions)
 [![Go Report Card](https://goreportcard.com/badge/github.com/aler9/landiscover)](https://goreportcard.com/report/github.com/aler9/landiscover)
 [![Docker Hub](https://img.shields.io/badge/docker-aler9%2Flandiscover-blue)](https://hub.docker.com/r/aler9/landiscover)
 
