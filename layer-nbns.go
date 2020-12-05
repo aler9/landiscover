@@ -15,7 +15,7 @@ var layerTypeNbns gopacket.LayerType
 
 type layerNbns struct {
 	layers.BaseLayer
-	TransactionId   uint16
+	TransactionID   uint16
 	IsResponse      bool
 	Opcode          uint8
 	Truncated       bool
@@ -92,7 +92,7 @@ func (l *layerNbns) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) err
 		return fmt.Errorf("invalid packet")
 	}
 
-	l.TransactionId = binary.BigEndian.Uint16(data[0:2])
+	l.TransactionID = binary.BigEndian.Uint16(data[0:2])
 	l.IsResponse = (data[3] >> 7) == 0x01
 	l.Opcode = uint8((data[3] >> 3) & 0x0F)
 	l.Truncated = (data[3] >> 1) == 0x01
@@ -153,7 +153,7 @@ func (l *layerNbns) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.Serial
 		panic(err)
 	}
 
-	binary.BigEndian.PutUint16(data[0:2], l.TransactionId)
+	binary.BigEndian.PutUint16(data[0:2], l.TransactionID)
 	if l.IsResponse {
 		data[3] |= 0x01 << 7
 	}

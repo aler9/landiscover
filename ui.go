@@ -45,7 +45,7 @@ type ui struct {
 	done      chan struct{}
 }
 
-func newUi(p *program) error {
+func newUI(p *program) error {
 	err := termbox.Init()
 	if err != nil {
 		return err
@@ -108,11 +108,11 @@ outer:
 					close(u.p.terminate)
 
 				case termbox.KeyArrowLeft:
-					u.tableScrollX += 1
+					u.tableScrollX++
 					u.draw()
 
 				case termbox.KeyArrowRight:
-					u.tableScrollX -= 1
+					u.tableScrollX--
 					u.draw()
 
 				case termbox.KeyArrowUp:
@@ -349,18 +349,16 @@ func (u *ui) gatherData() {
 
 				if u.tableSortAsc {
 					return bytes.Compare(ipa, ipb) < 0
-				} else {
-					return bytes.Compare(ipa, ipb) >= 0
 				}
+				return bytes.Compare(ipa, ipb) >= 0
 			}
 
 		} else {
 			if u.tableRows[i].cells[n] != u.tableRows[j].cells[n] {
 				if u.tableSortAsc {
 					return u.tableRows[i].cells[n] < u.tableRows[j].cells[n]
-				} else {
-					return u.tableRows[i].cells[n] > u.tableRows[j].cells[n]
 				}
+				return u.tableRows[i].cells[n] > u.tableRows[j].cells[n]
 			}
 		}
 
@@ -472,8 +470,8 @@ func (u *ui) drawScrollableTable(startX int, startY int, width int, height int,
 	u.drawScrollbar(false, endY, startX, width, tableWidth, *scrollX)
 
 	// reduce space
-	endX -= 1
-	endY -= 1
+	endX--
+	endY--
 
 	// draw columns
 	x := startX + *scrollX
@@ -514,7 +512,7 @@ func (u *ui) drawScrollableTable(startX int, startY int, width int, height int,
 				x += colWidths[i] + uiColumnPadding
 			}
 		}
-		y += 1
+		y++
 	}
 }
 

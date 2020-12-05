@@ -2,14 +2,9 @@ package main
 
 import (
 	"net"
-	"time"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-)
-
-const (
-	nbnsPeriod = 200 * time.Millisecond
 )
 
 type methodNbns struct {
@@ -67,11 +62,11 @@ func (mn *methodNbns) run() {
 		}
 
 		srcMac := copyMac(eth.SrcMAC)
-		srcIp := copyIp(ip.SrcIP)
+		srcIP := copyIP(ip.SrcIP)
 
 		mn.p.nbns <- nbnsReq{
 			srcMac: srcMac,
-			srcIp:  srcIp,
+			srcIP:  srcIP,
 			name:   name,
 		}
 	}
@@ -82,10 +77,10 @@ func (mn *methodNbns) run() {
 	}
 }
 
-func (mn *methodNbns) request(destIp net.IP) {
+func (mn *methodNbns) request(destIP net.IP) {
 	localAddr := &net.UDPAddr{}
 	remoteAddr := &net.UDPAddr{
-		IP:   destIp,
+		IP:   destIP,
 		Port: nbnsPort,
 	}
 	conn, err := net.DialUDP("udp", localAddr, remoteAddr)
@@ -95,7 +90,7 @@ func (mn *methodNbns) request(destIp net.IP) {
 	defer conn.Close()
 
 	nbns := layerNbns{
-		TransactionId: randUint16(),
+		TransactionID: randUint16(),
 		Questions: []nbnsQuestion{
 			{
 				Query: "CKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",

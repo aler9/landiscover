@@ -61,7 +61,7 @@ func copyMac(in net.HardwareAddr) net.HardwareAddr {
 	return ret
 }
 
-func copyIp(in net.IP) net.IP {
+func copyIP(in net.IP) net.IP {
 	ret := net.IP(make([]byte, 4))
 	copy(ret, in)
 	return ret
@@ -71,13 +71,13 @@ func randUint16() uint16 {
 	return uint16(rand.Uint32())
 }
 
-func randAvailableIps(ownIp net.IP) []net.IP {
+func randAvailableIps(ownIP net.IP) []net.IP {
 	var entries []net.IP
 	for i := byte(1); i <= 254; i++ {
 		eip := make([]byte, 4)
-		copy(eip, ownIp)
+		copy(eip, ownIP)
 		eip[3] = i
-		if bytes.Equal(eip, ownIp) == true { // skip own ip
+		if bytes.Equal(eip, ownIP) { // skip own ip
 			continue
 		}
 		entries = append(entries, eip)

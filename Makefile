@@ -10,7 +10,8 @@ help:
 	@echo ""
 	@echo "  mod-tidy       run go mod tidy"
 	@echo "  format         format source files"
-	@echo "  test           run available tests"
+	@echo "  test           run tests"
+	@echo "  lint           run linter"
 	@echo "  run ARGS=args  run app"
 	@echo "  release        build release assets"
 	@echo "  dockerhub      build and push docker hub images"
@@ -50,6 +51,15 @@ test:
 test-nodocker:
 	$(eval export CGO_ENABLED=0)
 	go build -o /dev/null .
+
+lint:
+	docker run --rm -v $(PWD):/app -w /app \
+	golangci/golangci-lint:v1.33.0 \
+	golangci-lint run -v \
+	--disable=errcheck \
+	--enable=gofmt \
+	--enable=golint \
+	--enable=misspell
 
 define DOCKERFILE_RUN
 FROM amd64/$(BASE_IMAGE)

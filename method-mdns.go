@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"net"
 	"strings"
@@ -34,7 +33,7 @@ func newMethodMdns(p *program) error {
 func (mm *methodMdns) run() {
 	go mm.runListener()
 
-	if mm.p.passiveMode == false {
+	if !mm.p.passiveMode {
 		// continuously poll mdns in order to detect changes or skipped hosts
 		go mm.runPeriodicRequests()
 	}
@@ -67,7 +66,7 @@ func (mm *methodMdns) runListener() {
 		}
 
 		srcMac := copyMac(eth.SrcMAC)
-		srcIp := copyIp(ip.SrcIP)
+		srcIP := copyIP(ip.SrcIP)
 
 		domainName := func() string {
 			for _, a := range mdns.Answers {
@@ -82,8 +81,8 @@ func (mm *methodMdns) runListener() {
 				}
 
 				// accept only if mdns ip matches with sender ip
-				mdnsIp := net.ParseIP(fmt.Sprintf("%s.%s.%s.%s", m[4], m[3], m[2], m[1])).To4()
-				if bytes.Equal(mdnsIp, srcIp) == false {
+				mdnsIP := net.ParseIP(fmt.Sprintf("%s.%s.%s.%s", m[4], m[3], m[2], m[1])).To4()
+				if !mdnsIP.Equal(srcIP) {
 					continue
 				}
 
@@ -99,7 +98,7 @@ func (mm *methodMdns) runListener() {
 
 		mm.p.mdns <- mdnsReq{
 			srcMac:     srcMac,
-			srcIp:      srcIp,
+			srcIP:      srcIP,
 			domainName: domainName,
 		}
 	}
@@ -110,7 +109,7 @@ func (mm *methodMdns) runListener() {
 	}
 }
 
-func (mm *methodMdns) request(destIp net.IP) {
+func (mm *methodMdns) request(destIP net.IP) {
 	mac, _ := net.ParseMAC("01:00:5e:00:00:fb")
 	eth := layers.Ethernet{
 		SrcMAC:       mm.p.intf.HardwareAddr,
@@ -122,7 +121,7 @@ func (mm *methodMdns) request(destIp net.IP) {
 		TTL:      255,
 		Id:       randUint16(),
 		Protocol: layers.IPProtocolUDP,
-		SrcIP:    mm.p.ownIp,
+		SrcIP:    mm.p.ownIP,
 		DstIP:    net.ParseIP("224.0.0.251"), // TODO: provare unicast
 	}
 	udp := layers.UDP{
@@ -131,10 +130,10 @@ func (mm *methodMdns) request(destIp net.IP) {
 	}
 	udp.SetNetworkLayerForChecksum(&ip)
 	mdns := layerMdns{
-		TransactionId: 0,
+		TransactionID: 0,
 		Questions: []mdnsQuestion{
 			{
-				Query: fmt.Sprintf("%d.%d.%d.%d.in-addr.arpa", destIp[3], destIp[2], destIp[1], destIp[0]),
+				Query: fmt.Sprintf("%d.%d.%d.%d.in-addr.arpa", destIP[3], destIP[2], destIP[1], destIP[0]),
 				Type:  0x0C, // domain pointer
 				Class: 1,    // IN
 			},
@@ -158,7 +157,7 @@ func (mm *methodMdns) request(destIp net.IP) {
 
 func (mm *methodMdns) runPeriodicRequests() {
 	for {
-		for _, dstAddr := range randAvailableIps(mm.p.ownIp) {
+		for _, dstAddr := range randAvailableIps(mm.p.ownIP) {
 			mm.request(dstAddr)
 			time.Sleep(mdnsPeriod) // about 1 minute for a full scan
 		}

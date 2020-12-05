@@ -33,7 +33,7 @@ func newMethodArp(p *program) error {
 func (ma *methodArp) run() {
 	go ma.runListener()
 
-	if ma.p.passiveMode == false {
+	if !ma.p.passiveMode {
 		go ma.runPeriodicRequests()
 	}
 }
@@ -60,21 +60,21 @@ func (ma *methodArp) runListener() {
 			return
 		}
 
-		if bytes.Equal(arp.SourceProtAddress, []byte{0, 0, 0, 0}) == true {
+		if bytes.Equal(arp.SourceProtAddress, []byte{0, 0, 0, 0}) {
 			return
 		}
 
 		srcMac := copyMac(arp.SourceHwAddress)
-		srcIp := copyIp(arp.SourceProtAddress)
+		srcIP := copyIP(arp.SourceProtAddress)
 
 		// ethernet mac and arp mac must correspond
-		if bytes.Equal(arp.SourceHwAddress, eth.SrcMAC) == false {
+		if !bytes.Equal(arp.SourceHwAddress, eth.SrcMAC) {
 			return
 		}
 
 		ma.p.arp <- arpReq{
 			srcMac: srcMac,
-			srcIp:  srcIp,
+			srcIP:  srcIP,
 		}
 	}
 
@@ -97,7 +97,7 @@ func (ma *methodArp) runPeriodicRequests() {
 		ProtAddressSize:   4,
 		Operation:         layers.ARPRequest,
 		SourceHwAddress:   ma.p.intf.HardwareAddr,
-		SourceProtAddress: ma.p.ownIp,
+		SourceProtAddress: ma.p.ownIP,
 		DstHwAddress:      []byte{0, 0, 0, 0, 0, 0},
 	}
 
@@ -108,7 +108,7 @@ func (ma *methodArp) runPeriodicRequests() {
 	}
 
 	for {
-		for _, dstAddr := range randAvailableIps(ma.p.ownIp) {
+		for _, dstAddr := range randAvailableIps(ma.p.ownIP) {
 			arp.DstProtAddress = dstAddr
 			if err := gopacket.SerializeLayers(buf, opts, &eth, &arp); err != nil {
 				panic(err)

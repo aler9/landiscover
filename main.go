@@ -36,7 +36,7 @@ type node struct {
 
 type arpReq struct {
 	srcMac net.HardwareAddr
-	srcIp  net.IP
+	srcIP  net.IP
 }
 
 type dnsReq struct {
@@ -46,13 +46,13 @@ type dnsReq struct {
 
 type mdnsReq struct {
 	srcMac     net.HardwareAddr
-	srcIp      net.IP
+	srcIP      net.IP
 	domainName string
 }
 
 type nbnsReq struct {
 	srcMac net.HardwareAddr
-	srcIp  net.IP
+	srcIP  net.IP
 	name   string
 }
 
@@ -64,7 +64,7 @@ type uiGetDataReq struct {
 type program struct {
 	passiveMode bool
 	intf        *net.Interface
-	ownIp       net.IP
+	ownIP       net.IP
 	ls          *listener
 	ma          *methodArp
 	mm          *methodMdns
@@ -123,7 +123,7 @@ func newProgram() error {
 		return err
 	}
 
-	ownIp, err := func() (net.IP, error) {
+	ownIP, err := func() (net.IP, error) {
 		addrs, err := intf.Addrs()
 		if err != nil {
 			return nil, err
@@ -148,7 +148,7 @@ func newProgram() error {
 	p := &program{
 		passiveMode: *argPassiveMode,
 		intf:        intf,
-		ownIp:       ownIp,
+		ownIP:       ownIP,
 		arp:         make(chan arpReq),
 		dns:         make(chan dnsReq),
 		mdns:        make(chan mdnsReq),
@@ -177,7 +177,7 @@ func newProgram() error {
 		return err
 	}
 
-	err = newUi(p)
+	err = newUI(p)
 	if err != nil {
 		return err
 	}
@@ -200,19 +200,19 @@ outer:
 	for {
 		select {
 		case req := <-p.arp:
-			key := newNodeKey(req.srcMac, req.srcIp)
+			key := newNodeKey(req.srcMac, req.srcIP)
 
 			if _, ok := nodes[key]; !ok {
 				nodes[key] = &node{
 					lastSeen: time.Now(),
 					mac:      req.srcMac,
-					ip:       req.srcIp,
+					ip:       req.srcIP,
 				}
 
-				if p.passiveMode == false {
-					go p.dnsRequest(key, req.srcIp)
-					go p.mm.request(req.srcIp)
-					go p.mn.request(req.srcIp)
+				if !p.passiveMode {
+					go p.dnsRequest(key, req.srcIP)
+					go p.mm.request(req.srcIP)
+					go p.mn.request(req.srcIP)
 				}
 
 				// update last seen
@@ -224,13 +224,13 @@ outer:
 			nodes[req.key].dns = req.dns
 
 		case req := <-p.mdns:
-			key := newNodeKey(req.srcMac, req.srcIp)
+			key := newNodeKey(req.srcMac, req.srcIP)
 
 			if _, ok := nodes[key]; !ok {
 				nodes[key] = &node{
 					lastSeen: time.Now(),
 					mac:      req.srcMac,
-					ip:       req.srcIp,
+					ip:       req.srcIP,
 				}
 			}
 
@@ -240,13 +240,13 @@ outer:
 			}
 
 		case req := <-p.nbns:
-			key := newNodeKey(req.srcMac, req.srcIp)
+			key := newNodeKey(req.srcMac, req.srcIP)
 
 			if _, has := nodes[key]; !has {
 				nodes[key] = &node{
 					lastSeen: time.Now(),
 					mac:      req.srcMac,
-					ip:       req.srcIp,
+					ip:       req.srcIP,
 				}
 			}
 

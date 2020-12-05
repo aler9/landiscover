@@ -11,13 +11,13 @@ import (
 
 const mdnsPort = 5353
 
-var reMdnsQueryLocal = regexp.MustCompile("^([0-9]{1,3})\\.([0-9]{1,3})\\.([0-9]{1,3})\\.([0-9]{1,3})\\.in-addr\\.arpa$")
+var reMdnsQueryLocal = regexp.MustCompile(`^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.in-addr\.arpa$`)
 
 var layerTypeMdns gopacket.LayerType
 
 type layerMdns struct {
 	layers.BaseLayer
-	TransactionId   uint16
+	TransactionID   uint16
 	IsResponse      bool
 	Opcode          uint8
 	Questions       []mdnsQuestion
@@ -81,7 +81,7 @@ func (l *layerMdns) Payload() []byte {
 func (l *layerMdns) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	l.BaseLayer = layers.BaseLayer{Contents: data[:]}
 
-	l.TransactionId = binary.BigEndian.Uint16(data[0:2])
+	l.TransactionID = binary.BigEndian.Uint16(data[0:2])
 	l.IsResponse = (data[3] >> 7) == 0x01
 	l.Opcode = uint8((data[3] >> 3) & 0x0F)
 	questionCount := binary.BigEndian.Uint16(data[4:6])
@@ -135,7 +135,7 @@ func (l *layerMdns) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.Serial
 		panic(err)
 	}
 
-	binary.BigEndian.PutUint16(data[0:2], l.TransactionId)
+	binary.BigEndian.PutUint16(data[0:2], l.TransactionID)
 	if l.IsResponse {
 		data[3] |= 0x01 << 7
 	}

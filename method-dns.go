@@ -4,8 +4,8 @@ import (
 	"net"
 )
 
-func (p *program) dnsRequest(key nodeKey, destIp net.IP) {
-	names, err := net.LookupAddr(destIp.String())
+func (p *program) dnsRequest(key nodeKey, destIP net.IP) {
+	names, err := net.LookupAddr(destIP.String())
 	if err != nil {
 		return
 	}
