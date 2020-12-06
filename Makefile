@@ -55,11 +55,7 @@ test-nodocker:
 lint:
 	docker run --rm -v $(PWD):/app -w /app \
 	golangci/golangci-lint:v1.33.0 \
-	golangci-lint run -v \
-	--disable=errcheck \
-	--enable=gofmt \
-	--enable=golint \
-	--enable=misspell
+	golangci-lint run -v
 
 define DOCKERFILE_RUN
 FROM amd64/$(BASE_IMAGE)
