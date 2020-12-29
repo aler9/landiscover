@@ -83,7 +83,7 @@ func (l *layerMdns) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) err
 
 	l.TransactionID = binary.BigEndian.Uint16(data[0:2])
 	l.IsResponse = (data[3] >> 7) == 0x01
-	l.Opcode = uint8((data[3] >> 3) & 0x0F)
+	l.Opcode = (data[3] >> 3) & 0x0F
 	questionCount := binary.BigEndian.Uint16(data[4:6])
 	answerCount := binary.BigEndian.Uint16(data[6:8])
 	l.AuthorityCount = binary.BigEndian.Uint16(data[8:10])

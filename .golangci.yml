@@ -1,11 +1,11 @@
 
 linters:
-  disable:
-  - errcheck
   enable:
   - gofmt
   - golint
   - misspell
+  - unconvert
+  - unparam
 
 issues:
   exclude-use-default: false

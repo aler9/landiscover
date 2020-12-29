@@ -244,8 +244,8 @@ func (u *ui) onMoveY(value int) {
 func (u *ui) draw() {
 	u.gatherData()
 
-	termbox.Clear(termbox.ColorBlack, termbox.ColorBlack)
-	termWidth, termHeight := termbox.Size() // must be called after Clear()
+	termbox.Clear(termbox.ColorBlack, termbox.ColorBlack) //nolint:errcheck
+	termWidth, termHeight := termbox.Size()               // must be called after Clear()
 
 	u.drawRect(0, 0, termWidth, 3)
 
@@ -258,7 +258,7 @@ func (u *ui) draw() {
 		u.selection, u.tableSortBy, u.tableSortAsc,
 		u.tableColumns, u.tableRows, &u.tableScrollX, &u.tableScrollY)
 
-	termbox.Flush()
+	termbox.Flush() //nolint:errcheck
 }
 
 func (u *ui) gatherData() {
