@@ -87,7 +87,7 @@ func (mn *methodNbns) request(destIP net.IP) {
 	if err != nil {
 		panic(err)
 	}
-	defer conn.Close() //nolint:errcheck
+	defer conn.Close()
 
 	nbns := layerNbns{
 		TransactionID: randUint16(),

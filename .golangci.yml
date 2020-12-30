@@ -5,7 +5,8 @@ linters:
   - golint
   - misspell
   - unconvert
-  - unparam
+  disable:
+  - errcheck
 
 issues:
   exclude-use-default: false

@@ -128,7 +128,7 @@ func (mm *methodMdns) request(destIP net.IP) {
 		SrcPort: mdnsPort,
 		DstPort: mdnsPort,
 	}
-	udp.SetNetworkLayerForChecksum(&ip) //nolint:errcheck
+	udp.SetNetworkLayerForChecksum(&ip)
 	mdns := layerMdns{
 		TransactionID: 0,
 		Questions: []mdnsQuestion{
