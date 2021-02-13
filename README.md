@@ -1,8 +1,8 @@
 
 # landiscover
 
-[![Test](https://github.com/aler9/landiscover/workflows/test/badge.svg)](https://github.com/aler9/landiscover/actions)
-[![Lint](https://github.com/aler9/landiscover/workflows/lint/badge.svg)](https://github.com/aler9/landiscover/actions)
+[![Test](https://github.com/aler9/landiscover/workflows/test/badge.svg)](https://github.com/aler9/landiscover/actions?query=workflow:test)
+[![Lint](https://github.com/aler9/landiscover/workflows/lint/badge.svg)](https://github.com/aler9/landiscover/actions?query=workflow:lint)
 [![Docker Hub](https://img.shields.io/badge/docker-aler9%2Flandiscover-blue)](https://hub.docker.com/r/aler9/landiscover)
 
 ![](README.gif)
