@@ -86,7 +86,7 @@ func (l *layerNbns) Payload() []byte {
 }
 
 func (l *layerNbns) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
-	l.BaseLayer = layers.BaseLayer{Contents: data[:]}
+	l.BaseLayer = layers.BaseLayer{Contents: data}
 
 	if len(data) < 12 {
 		return fmt.Errorf("invalid packet")

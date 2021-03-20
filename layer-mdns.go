@@ -79,7 +79,7 @@ func (l *layerMdns) Payload() []byte {
 }
 
 func (l *layerMdns) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
-	l.BaseLayer = layers.BaseLayer{Contents: data[:]}
+	l.BaseLayer = layers.BaseLayer{Contents: data}
 
 	l.TransactionID = binary.BigEndian.Uint16(data[0:2])
 	l.IsResponse = (data[3] >> 7) == 0x01

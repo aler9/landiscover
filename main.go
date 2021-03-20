@@ -20,7 +20,7 @@ type nodeKey struct {
 
 func newNodeKey(mac []byte, ip []byte) nodeKey {
 	key := nodeKey{}
-	copy(key.mac[:], mac[:])
+	copy(key.mac[:], mac)
 	copy(key.ip[:], ip)
 	return key
 }
