@@ -136,12 +136,28 @@ func dnsQueryDecode(data []byte, start int) (string, int) {
 }
 
 func dnsQueryEncode(in string) []byte {
-	var ret []byte
-	for _, part := range strings.Split(in, ".") {
+	tmp := strings.Split(in, ".")
+
+	l := 0
+	for _, part := range tmp {
 		bpart := []byte(part)
-		ret = append(ret, uint8(len(bpart)))
-		ret = append(ret, bpart...)
+		l++
+		l += len(bpart)
 	}
-	ret = append(ret, uint8(0))
+	l++
+
+	ret := make([]byte, l)
+	i := 0
+
+	for _, part := range tmp {
+		bpart := []byte(part)
+		ret[i] = uint8(len(bpart))
+		i++
+		copy(ret[i:], bpart)
+		i += len(bpart)
+	}
+
+	ret[i] = uint8(0)
+
 	return ret
 }
