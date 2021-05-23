@@ -352,7 +352,6 @@ func (u *ui) gatherData() {
 				}
 				return bytes.Compare(ipa, ipb) >= 0
 			}
-
 		} else {
 			if u.tableRows[i].cells[n] != u.tableRows[j].cells[n] {
 				if u.tableSortAsc {
