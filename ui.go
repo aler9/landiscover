@@ -407,7 +407,8 @@ func (u *ui) drawClippedText(startX, endX, x, y int, text string, fg, bg termbox
 
 func (u *ui) drawScrollableTable(startX int, startY int, width int, height int,
 	selection string, sortBy string, sortAsc bool, columns []uiTableColumn,
-	rows []uiTableRow, scrollX *int, scrollY *int) {
+	rows []uiTableRow, scrollX *int, scrollY *int,
+) {
 	endX := startX + width - 1
 	endY := startY + height - 1
 
@@ -516,7 +517,8 @@ func (u *ui) drawScrollableTable(startX int, startY int, width int, height int,
 }
 
 func (u *ui) drawScrollbar(vertical bool, fixedCoord int, start int,
-	screenSize int, pageSize int, cur int) {
+	screenSize int, pageSize int, cur int,
+) {
 	scrollbarMaxSize := screenSize - 1
 	scrollbarSize := scrollbarMaxSize
 	if pageSize > scrollbarMaxSize {
