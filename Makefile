@@ -1,6 +1,6 @@
 
 BASE_IMAGE = golang:1.17-alpine3.14
-LINT_IMAGE = golangci/golangci-lint:v1.44.2
+LINT_IMAGE = golangci/golangci-lint:v1.45.2
 
 .PHONY: $(shell ls)
 
@@ -26,11 +26,11 @@ endef
 
 mod-tidy:
 	docker run --rm -it -v $(PWD):/s -w /s amd64/$(BASE_IMAGE) \
-	sh -c "go get && GOPROXY=direct go mod tidy"
+	sh -c "apk add git && go get && GOPROXY=direct go mod tidy"
 
 define DOCKERFILE_FORMAT
 FROM $(BASE_IMAGE)
-RUN go install mvdan.cc/gofumpt@v0.2.0
+RUN go install mvdan.cc/gofumpt@v0.3.1
 endef
 export DOCKERFILE_FORMAT
 
