@@ -1,3 +1,8 @@
+# Fork additions
+
+In this fork i've added simple web interface (it also updating entries on the fly).
+
+
 
 # landiscover
 
@@ -40,6 +45,7 @@ Machine and service discovery tool.
 Flags:
   --help     Show context-sensitive help (also try --help-long and --help-man).
   --passive  do not send any packet
+  --httpd    Run in httpd mode (web interface)
 
 Args:
   [<interface>]  Interface to listen to

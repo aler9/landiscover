@@ -4,6 +4,8 @@ LINT_IMAGE = golangci/golangci-lint:v1.45.2
 
 .PHONY: $(shell ls)
 
+all: build
+
 help:
 	@echo "usage: make [action]"
 	@echo ""
@@ -176,3 +178,7 @@ dockerhub:
 
 	docker buildx rm builder
 	rm -rf $$HOME/.docker/manifests/*
+
+build:
+	$(eval export CGO_ENABLED=0)
+	go build -o landiscover .

@@ -65,6 +65,7 @@ type program struct {
 	passiveMode bool
 	intf        *net.Interface
 	ownIP       net.IP
+	httpd       bool
 	ls          *listener
 	ma          *methodArp
 	mm          *methodMdns
@@ -85,6 +86,7 @@ func newProgram() error {
 
 	argInterface := k.Arg("interface", "Interface to listen to").String()
 	argPassiveMode := k.Flag("passive", "do not send any packet").Default("false").Bool()
+	argHttpd := k.Flag("httpd","Run in httpd mode (web interface)").Default("false").Bool()
 
 	kingpin.MustParse(k.Parse(os.Args[1:]))
 
@@ -145,10 +147,13 @@ func newProgram() error {
 		return err
 	}
 
+	
+
 	p := &program{
 		passiveMode: *argPassiveMode,
 		intf:        intf,
 		ownIP:       ownIP,
+		httpd:       *argHttpd,
 		arp:         make(chan arpReq),
 		dns:         make(chan dnsReq),
 		mdns:        make(chan mdnsReq),
@@ -192,9 +197,16 @@ func (p *program) run() {
 	go p.ma.run()
 	go p.mm.run()
 	go p.mn.run()
+	if p.httpd == false {
 	go p.ui.run()
+	}
 
 	nodes := make(map[nodeKey]*node)
+
+	if p.httpd {
+		fmt.Printf("Running in httpd mode...\n")
+		go httpdaemonize(nodes)
+	}
 
 outer:
 	for {
@@ -280,7 +292,9 @@ outer:
 		}
 	}()
 
+	if p.httpd == false {
 	p.ui.close()
+	}
 
 	/*close(p.arp)
 	close(p.dns)
