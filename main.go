@@ -134,7 +134,7 @@ func newProgram() error {
 		for _, a := range addrs {
 			if ipn, ok := a.(*net.IPNet); ok {
 				if ip4 := ipn.IP.To4(); ip4 != nil {
-					if bytes.Equal(ipn.Mask, []byte{255, 255, 255, 0}) {
+					if bytes.Equal(ipn.Mask, []byte{255, 255, 0, 0}) {
 						return ip4, nil
 					}
 				}

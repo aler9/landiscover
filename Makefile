@@ -1,6 +1,6 @@
 
-BASE_IMAGE = golang:1.15-alpine3.12
-LINT_IMAGE = golangci/golangci-lint:v1.38.0
+BASE_IMAGE = golang:1.17-alpine3.14
+LINT_IMAGE = golangci/golangci-lint:v1.45.2
 
 .PHONY: $(shell ls)
 
@@ -28,19 +28,18 @@ endef
 
 mod-tidy:
 	docker run --rm -it -v $(PWD):/s -w /s amd64/$(BASE_IMAGE) \
-	sh -c "go get && GOPROXY=direct go mod tidy"
+	sh -c "apk add git && go get && GOPROXY=direct go mod tidy"
 
 define DOCKERFILE_FORMAT
 FROM $(BASE_IMAGE)
-RUN apk add --no-cache git
-RUN GO111MODULE=on go get mvdan.cc/gofumpt
+RUN go install mvdan.cc/gofumpt@v0.3.1
 endef
 export DOCKERFILE_FORMAT
 
 format:
 	echo "$$DOCKERFILE_FORMAT" | docker build -q . -f - -t temp
 	docker run --rm -it -v $(PWD):/s -w /s temp \
-	sh -c "find . -type f -name '*.go' | xargs gofumpt -l -w"
+	sh -c "gofumpt -l -w ."
 
 define DOCKERFILE_TEST
 FROM amd64/$(BASE_IMAGE)
@@ -183,3 +182,7 @@ dockerhub:
 build:
 	$(eval export CGO_ENABLED=0)
 	go build -o landiscover .
+build-freebsd:
+	$(eval export GOOS=freebsd)
+	$(eval export GOARCH=386)
+	go build -o landiscover-freebsd .
