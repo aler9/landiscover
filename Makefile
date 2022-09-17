@@ -13,7 +13,7 @@ help:
 	@echo "  test           run tests"
 	@echo "  lint           run linter"
 	@echo "  run ARGS=args  run app"
-	@echo "  release        build release assets"
+	@echo "  binaries       build binaries for all platforms"
 	@echo "  dockerhub      build and push docker hub images"
 	@echo ""
 
