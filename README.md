@@ -23,7 +23,7 @@ This software combines multiple discovery techniques:
 
 Install and run with Docker:
 ```
-docker run --rm -it --network=host aler9/landiscover
+docker run --rm -it --network=host -e COLUMNS=$COLUMNS aler9/landiscover
 ```
 
 Alternatively, you can download and run a precompiled binary from the [release page](https://github.com/aler9/landiscover/releases).
