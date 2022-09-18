@@ -81,8 +81,7 @@ type program struct {
 }
 
 func newProgram() error {
-	k := kingpin.New("landiscover",
-		"landiscover "+version+"\n\nMachine and service discovery tool.")
+	k := kingpin.New("landiscover", "landiscover "+version)
 
 	argInterface := k.Arg("interface", "Interface to listen to").String()
 	argPassiveMode := k.Flag("passive", "do not send any packet").Default("false").Bool()
