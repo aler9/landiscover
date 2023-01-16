@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"gopkg.in/alecthomas/kingpin.v2"
+	"github.com/alecthomas/kong"
 )
 
 var version = "v0.0.0"
@@ -80,13 +80,15 @@ type program struct {
 	terminate chan struct{}
 }
 
+var cli struct {
+	Passive   bool   `help:"do not send any packet."`
+	Interface string `arg:"" help:"Interface to listen to."`
+}
+
 func newProgram() error {
-	k := kingpin.New("landiscover", "landiscover "+version)
-
-	argInterface := k.Arg("interface", "Interface to listen to").String()
-	argPassiveMode := k.Flag("passive", "do not send any packet").Default("false").Bool()
-
-	kingpin.MustParse(k.Parse(os.Args[1:]))
+	kong.Parse(&cli,
+		kong.Description("landiscover "+version),
+		kong.UsageOnError())
 
 	if os.Getuid() != 0 {
 		return fmt.Errorf("you must be root")
@@ -97,8 +99,8 @@ func newProgram() error {
 	layerMdnsInit()
 
 	intfName, err := func() (string, error) {
-		if len(*argInterface) > 1 {
-			return *argInterface, nil
+		if len(cli.Interface) > 1 {
+			return cli.Interface, nil
 		}
 
 		return defaultInterfaceName()
@@ -146,7 +148,7 @@ func newProgram() error {
 	}
 
 	p := &program{
-		passiveMode: *argPassiveMode,
+		passiveMode: cli.Passive,
 		intf:        intf,
 		ownIP:       ownIP,
 		arp:         make(chan arpReq),
