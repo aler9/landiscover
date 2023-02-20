@@ -11,7 +11,6 @@ export DOCKERFILE_TEST
 test:
 	echo "$$DOCKERFILE_TEST" | docker build -q . -f - -t temp
 	docker run --rm \
-	-v /var/run/docker.sock:/var/run/docker.sock:ro \
 	temp \
 	make test-nodocker
 
