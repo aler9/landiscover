@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/alecthomas/kong v0.7.1
 	github.com/google/gopacket v1.1.19
-	github.com/nsf/termbox-go v0.0.0-20200418040025-38ba6e5628f1
+	github.com/nsf/termbox-go v1.1.1
 )
 
 require (
