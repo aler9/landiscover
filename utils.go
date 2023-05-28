@@ -2,9 +2,9 @@ package main
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/binary"
 	"fmt"
-	"math/rand"
 	"net"
 	"strings"
 
@@ -68,10 +68,70 @@ func copyIP(in net.IP) net.IP {
 }
 
 func randUint16() uint16 {
-	return uint16(rand.Uint32())
+	var b [2]byte
+	rand.Read(b[:])
+	return uint16(b[0])<<8 | uint16(b[1])
 }
 
-func randAvailableIps(ownIP net.IP) []net.IP {
+func randUint32() uint32 {
+	var b [4]byte
+	rand.Read(b[:])
+	return uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3])
+}
+
+func randInt63() int64 {
+	var b [8]byte
+	rand.Read(b[:])
+	return int64(uint64(b[0]&0b01111111)<<56 | uint64(b[1])<<48 | uint64(b[2])<<40 | uint64(b[3])<<32 |
+		uint64(b[4])<<24 | uint64(b[5])<<16 | uint64(b[6])<<8 | uint64(b[7]))
+}
+
+// https://cs.opensource.google/go/go/+/refs/tags/go1.20.4:src/math/rand/rand.go;l=119
+func randInt63n(n int64) int64 {
+	if n <= 0 {
+		panic("invalid argument to Int63n")
+	}
+	if n&(n-1) == 0 { // n is power of two, can mask
+		return randInt63() & (n - 1)
+	}
+	max := int64((1 << 63) - 1 - (1<<63)%uint64(n))
+	v := randInt63()
+	for v > max {
+		v = randInt63()
+	}
+	return v % n
+}
+
+// https://cs.opensource.google/go/go/+/refs/tags/go1.20.4:src/math/rand/rand.go;l=160
+func randInt31n(n int32) int32 {
+	v := randUint32()
+	prod := uint64(v) * uint64(n)
+	low := uint32(prod)
+	if low < uint32(n) {
+		thresh := uint32(-n) % uint32(n)
+		for low < thresh {
+			v = randUint32()
+			prod = uint64(v) * uint64(n)
+			low = uint32(prod)
+		}
+	}
+	return int32(prod >> 32)
+}
+
+// https://cs.opensource.google/go/go/+/refs/tags/go1.20.4:src/math/rand/rand.go;l=246
+func randShuffle(n int, swap func(i, j int)) {
+	i := n - 1
+	for ; i > 1<<31-1-1; i-- {
+		j := int(randInt63n(int64(i + 1)))
+		swap(i, j)
+	}
+	for ; i > 0; i-- {
+		j := int(randInt31n(int32(i + 1)))
+		swap(i, j)
+	}
+}
+
+func randAvailableIPs(ownIP net.IP) []net.IP {
 	var entries []net.IP
 	for i := byte(1); i <= 254; i++ {
 		eip := make([]byte, 4)
@@ -83,7 +143,7 @@ func randAvailableIps(ownIP net.IP) []net.IP {
 		entries = append(entries, eip)
 	}
 
-	rand.Shuffle(len(entries), func(i, j int) {
+	randShuffle(len(entries), func(i, j int) {
 		entries[i], entries[j] = entries[j], entries[i]
 	})
 
