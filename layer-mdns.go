@@ -78,7 +78,7 @@ func (l *layerMdns) Payload() []byte {
 	return nil
 }
 
-func (l *layerMdns) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+func (l *layerMdns) DecodeFromBytes(data []byte, _ gopacket.DecodeFeedback) error {
 	l.BaseLayer = layers.BaseLayer{Contents: data}
 
 	l.TransactionID = binary.BigEndian.Uint16(data[0:2])
@@ -129,7 +129,7 @@ func (l *layerMdns) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) err
 	return nil
 }
 
-func (l *layerMdns) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
+func (l *layerMdns) SerializeTo(b gopacket.SerializeBuffer, _ gopacket.SerializeOptions) error {
 	data, err := b.AppendBytes(12)
 	if err != nil {
 		panic(err)

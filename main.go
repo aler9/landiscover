@@ -94,12 +94,12 @@ func newProgram() error {
 		return fmt.Errorf("you must be root")
 	}
 
-	rand.Seed(time.Now().UnixNano())
+	rand.Seed(time.Now().UnixNano()) //nolint:staticcheck
 	layerNbnsInit()
 	layerMdnsInit()
 
 	intfName, err := func() (string, error) {
-		if len(cli.Interface) > 1 {
+		if len(cli.Interface) != 0 {
 			return cli.Interface, nil
 		}
 
