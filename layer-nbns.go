@@ -85,7 +85,7 @@ func (l *layerNbns) Payload() []byte {
 	return nil
 }
 
-func (l *layerNbns) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+func (l *layerNbns) DecodeFromBytes(data []byte, _ gopacket.DecodeFeedback) error {
 	l.BaseLayer = layers.BaseLayer{Contents: data}
 
 	if len(data) < 12 {
@@ -147,7 +147,7 @@ func (l *layerNbns) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) err
 	return nil
 }
 
-func (l *layerNbns) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
+func (l *layerNbns) SerializeTo(b gopacket.SerializeBuffer, _ gopacket.SerializeOptions) error {
 	data, err := b.AppendBytes(12)
 	if err != nil {
 		panic(err)

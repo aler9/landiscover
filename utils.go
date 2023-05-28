@@ -122,9 +122,10 @@ func dnsQueryDecode(data []byte, start int) (string, int) {
 				}
 				read = append(read, []byte(substr)...)
 				break // query correctly decoded
-			} else { // size
-				toread = data[pos]
 			}
+
+			// size
+			toread = data[pos]
 		} else { // byte inside part
 			read = append(read, data[pos])
 			toread--
