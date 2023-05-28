@@ -4,7 +4,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"math/rand"
 	"net"
 	"os"
 	"time"
@@ -94,7 +93,6 @@ func newProgram() error {
 		return fmt.Errorf("you must be root")
 	}
 
-	rand.Seed(time.Now().UnixNano()) //nolint:staticcheck
 	layerNbnsInit()
 	layerMdnsInit()
 

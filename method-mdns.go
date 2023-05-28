@@ -157,7 +157,7 @@ func (mm *methodMdns) request(destIP net.IP) {
 
 func (mm *methodMdns) runPeriodicRequests() {
 	for {
-		for _, dstAddr := range randAvailableIps(mm.p.ownIP) {
+		for _, dstAddr := range randAvailableIPs(mm.p.ownIP) {
 			mm.request(dstAddr)
 			time.Sleep(mdnsPeriod) // about 1 minute for a full scan
 		}
