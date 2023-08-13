@@ -108,7 +108,12 @@ func (ma *methodArp) runPeriodicRequests() {
 	}
 
 	for {
-		for _, dstAddr := range randAvailableIPs(ma.p.ownIP) {
+		ips, err := randAvailableIPs(ma.p.ownIP)
+		if err != nil {
+			panic(err)
+		}
+
+		for _, dstAddr := range ips {
 			arp.DstProtAddress = dstAddr
 			if err := gopacket.SerializeLayers(buf, opts, &eth, &arp); err != nil {
 				panic(err)
