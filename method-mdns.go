@@ -116,10 +116,16 @@ func (mm *methodMdns) request(destIP net.IP) {
 		DstMAC:       mac,
 		EthernetType: layers.EthernetTypeIPv4,
 	}
+
+	v, err := randUint16()
+	if err != nil {
+		panic(err)
+	}
+
 	ip := layers.IPv4{
 		Version:  4,
 		TTL:      255,
-		Id:       randUint16(),
+		Id:       v,
 		Protocol: layers.IPProtocolUDP,
 		SrcIP:    mm.p.ownIP,
 		DstIP:    net.ParseIP("224.0.0.251"), // TODO: provare unicast
@@ -128,7 +134,12 @@ func (mm *methodMdns) request(destIP net.IP) {
 		SrcPort: mdnsPort,
 		DstPort: mdnsPort,
 	}
-	udp.SetNetworkLayerForChecksum(&ip)
+
+	err = udp.SetNetworkLayerForChecksum(&ip)
+	if err != nil {
+		panic(err)
+	}
+
 	mdns := layerMdns{
 		TransactionID: 0,
 		Questions: []mdnsQuestion{
@@ -145,11 +156,13 @@ func (mm *methodMdns) request(destIP net.IP) {
 		FixLengths:       true,
 		ComputeChecksums: true,
 	}
-	if err := gopacket.SerializeLayers(buf, opts, &eth, &ip, &udp, &mdns); err != nil {
+
+	err = gopacket.SerializeLayers(buf, opts, &eth, &ip, &udp, &mdns)
+	if err != nil {
 		panic(err)
 	}
 
-	err := mm.p.ls.socket.Write(buf.Bytes())
+	err = mm.p.ls.socket.Write(buf.Bytes())
 	if err != nil {
 		panic(err)
 	}
@@ -157,7 +170,12 @@ func (mm *methodMdns) request(destIP net.IP) {
 
 func (mm *methodMdns) runPeriodicRequests() {
 	for {
-		for _, dstAddr := range randAvailableIPs(mm.p.ownIP) {
+		ips, err := randAvailableIPs(mm.p.ownIP)
+		if err != nil {
+			panic(err)
+		}
+
+		for _, dstAddr := range ips {
 			mm.request(dstAddr)
 			time.Sleep(mdnsPeriod) // about 1 minute for a full scan
 		}
