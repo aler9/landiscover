@@ -1,6 +1,6 @@
 module github.com/aler9/landiscover
 
-go 1.20
+go 1.21
 
 require (
 	github.com/alecthomas/kong v0.8.1
