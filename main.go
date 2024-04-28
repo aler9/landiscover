@@ -108,25 +108,25 @@ func newProgram() error {
 	}
 
 	intf, err := func() (*net.Interface, error) {
-		intf, err := net.InterfaceByName(intfName)
-		if err != nil {
+		res, err2 := net.InterfaceByName(intfName)
+		if err2 != nil {
 			return nil, fmt.Errorf("invalid interface: %s", intfName)
 		}
 
-		if (intf.Flags & net.FlagBroadcast) == 0 {
+		if (res.Flags & net.FlagBroadcast) == 0 {
 			return nil, fmt.Errorf("interface does not support broadcast")
 		}
 
-		return intf, nil
+		return res, nil
 	}()
 	if err != nil {
 		return err
 	}
 
 	ownIP, err := func() (net.IP, error) {
-		addrs, err := intf.Addrs()
-		if err != nil {
-			return nil, err
+		addrs, err2 := intf.Addrs()
+		if err2 != nil {
+			return nil, err2
 		}
 
 		for _, a := range addrs {

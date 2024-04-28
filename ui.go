@@ -416,9 +416,9 @@ func (u *ui) drawScrollableTable(startX int, startY int, width int, height int,
 	// compute columns width
 	colWidths := make([]int, len(columns))
 	for i, col := range columns {
-		width := len(col) + 2 // leave additional space for order arrow
-		if colWidths[i] < width {
-			colWidths[i] = width
+		width2 := len(col) + 2 // leave additional space for order arrow
+		if colWidths[i] < width2 {
+			colWidths[i] = width2
 		}
 	}
 	for _, row := range rows {
