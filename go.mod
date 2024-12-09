@@ -3,7 +3,7 @@ module github.com/aler9/landiscover
 go 1.21
 
 require (
-	github.com/alecthomas/kong v1.5.0
+	github.com/alecthomas/kong v1.6.0
 	github.com/google/gopacket v1.1.19
 	github.com/nsf/termbox-go v1.1.1
 )
