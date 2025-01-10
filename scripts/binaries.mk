@@ -11,7 +11,7 @@ export DOCKERFILE_BINARIES
 
 binaries:
 	echo "$$DOCKERFILE_BINARIES" | docker build . -f - -t temp \
-	&& docker run --rm -v $(PWD):/out \
+	&& docker run --rm -v $(shell pwd):/out \
 	temp sh -c "rm -rf /out/binaries && cp -r /s/binaries /out/"
 
 binaries-nodocker:
@@ -22,13 +22,13 @@ binaries-nodocker:
 	rm -rf binaries && mkdir binaries
 
 	GOOS=linux GOARCH=amd64 $(GOBUILD) -o tmp/landiscover
-	tar -C tmp -czf $(PWD)/binaries/landiscover_$(VERSION)_linux_amd64.tar.gz --owner=0 --group=0 landiscover
+	tar -C tmp -czf $(shell pwd)/binaries/landiscover_$(VERSION)_linux_amd64.tar.gz --owner=0 --group=0 landiscover
 
 	GOOS=linux GOARCH=arm GOARM=6 $(GOBUILD) -o tmp/landiscover
-	tar -C tmp -czf $(PWD)/binaries/landiscover_$(VERSION)_linux_arm6.tar.gz --owner=0 --group=0 landiscover
+	tar -C tmp -czf $(shell pwd)/binaries/landiscover_$(VERSION)_linux_arm6.tar.gz --owner=0 --group=0 landiscover
 
 	GOOS=linux GOARCH=arm GOARM=7 $(GOBUILD) -o tmp/landiscover
-	tar -C tmp -czf $(PWD)/binaries/landiscover_$(VERSION)_linux_arm7.tar.gz --owner=0 --group=0 landiscover
+	tar -C tmp -czf $(shell pwd)/binaries/landiscover_$(VERSION)_linux_arm7.tar.gz --owner=0 --group=0 landiscover
 
 	GOOS=linux GOARCH=arm64 $(GOBUILD) -o tmp/landiscover
-	tar -C tmp -czf $(PWD)/binaries/landiscover_$(VERSION)_linux_arm64v8.tar.gz --owner=0 --group=0 landiscover
+	tar -C tmp -czf $(shell pwd)/binaries/landiscover_$(VERSION)_linux_arm64v8.tar.gz --owner=0 --group=0 landiscover
