@@ -527,9 +527,9 @@ func (u *ui) drawScrollbar(vertical bool, fixedCoord int, start int,
 	}
 
 	scrollZone := (scrollbarMaxSize - scrollbarSize)
-	min := scrollbarMaxSize - pageSize
-	if min != 0 {
-		start += (scrollZone - scrollZone*(cur-min)/(-min))
+	minVal := scrollbarMaxSize - pageSize
+	if minVal != 0 {
+		start += (scrollZone - scrollZone*(cur-minVal)/(-minVal))
 	}
 
 	if vertical {
